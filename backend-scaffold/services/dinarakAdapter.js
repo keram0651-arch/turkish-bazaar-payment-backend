@@ -3,12 +3,10 @@
  * =================================================
  * This file is the ONLY place in the codebase allowed to know about
  * Dinarak's specific API shape. Routes never call Dinarak directly — they
- * call this adapter. If the payment model below ever changes (e.g. Dinarak
- * confirms a real push/"create payment" endpoint), only THIS file needs to
- * change — routes/orders.js/the frontend stay untouched.
+ * call this adapter.
  */
 
-const RECONCILE_WINDOW_PADDING_MS = 5 * 60 * 1000; // absorb clock drift by looking slightly before order creation
+const RECONCILE_WINDOW_PADDING_MS = 5 * 60 * 1000;
 
 function isConfigured() {
   return Boolean(
@@ -23,8 +21,22 @@ function isAliasResolveConfigured() {
   return Boolean(process.env.DINARAK_API_BASE_URL && process.env.DINARAK_BEARER_TOKEN);
 }
 
+/**
+ * Lighter check just for showing payment instructions to the customer.
+ * Unlike isConfigured() (which gates AUTOMATIC verification and requires the
+ * Basic Auth credentials we don't have yet), createPayment() below makes no
+ * external call at all — it only needs our own merchant alias. This lets the
+ * storefront accept orders and show "transfer to this alias" today, while
+ * automatic payment detection stays off until DINARAK_BASIC_AUTH_USERNAME /
+ * DINARAK_BASIC_AUTH_PASSWORD / DINARAK_API_BASE_URL are set (isConfigured()
+ * above still gates that, in routes/orders.js and the background sweep).
+ */
+function isPaymentInstructionsConfigured() {
+  return Boolean(process.env.DINARAK_MERCHANT_ALIAS);
+}
+
 async function createPayment(order) {
-  if (!isConfigured()) {
+  if (!isPaymentInstructionsConfigured()) {
     const err = new Error('gateway_not_configured');
     err.code = 'gateway_not_configured';
     throw err;
@@ -103,18 +115,18 @@ async function resolveAlias(aliasType, value) {
     err.code = 'dinarak_network_error';
     throw err;
   }
-  if (response.status === 590) return null; // "Customer not found" per the doc
+  if (response.status === 590) return null;
   if (!response.ok) {
     const err = new Error('dinarak_request_failed');
     err.code = 'dinarak_request_failed';
     throw err;
   }
-  return response.json(); // { picCode, fullName, bankName }
+  return response.json();
 }
 
 function verifyWebhookSignature(rawBody, headers) {
   if (!process.env.DINARAK_WEBHOOK_SIGNING_SECRET) return false;
-  return false; // fail closed until Dinarak documents a real webhook + signature scheme
+  return false;
 }
 
 function parseWebhookPayload(body) {
@@ -128,6 +140,7 @@ function parseWebhookPayload(body) {
 module.exports = {
   isConfigured,
   isAliasResolveConfigured,
+  isPaymentInstructionsConfigured,
   createPayment,
   reconcilePendingOrder,
   resolveAlias,
