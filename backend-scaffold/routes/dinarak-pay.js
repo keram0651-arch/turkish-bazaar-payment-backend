@@ -9,13 +9,17 @@ router.post('/:orderId/pay/dinarak', async (req, res) => {
   if (order.status !== 'PENDING_PAYMENT') {
     return res.status(409).json({ error: `Order is already ${order.status}` });
   }
+  if (!order.customerPhone) {
+    return res.status(400).json({
+      error: 'invalid_phone',
+      message: 'A valid Jordanian mobile number is required to pay via Dinarak (needed to match the incoming transfer).',
+    });
+  }
 
   try {
     const result = await dinarak.createPayment(order);
-    return res.json(result); // { redirectUrl } or { qrImageUrl }
+    return res.json(result);
   } catch (e) {
-    // Honest failure — matches the frontend's handling. No fake success,
-    // ever, regardless of why the adapter couldn't start a payment.
     const code = e.code || 'unknown_error';
     const status = code === 'gateway_not_configured' || code === 'not_implemented' ? 503 : 502;
     return res.status(status).json({ error: code, message: e.message });
