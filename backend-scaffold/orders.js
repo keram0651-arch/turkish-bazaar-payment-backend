@@ -14,6 +14,17 @@ const orders = new Map();
 const seenTransactionRefs = new Set(); // idempotency guard
 
 const ORDER_TTL_MS = 30 * 60 * 1000; // 30 minutes before a pending order is considered expired
+const RECONCILE_THROTTLE_MS = 5 * 1000; // don't call Dinarak more than once per 5s per order
+
+function normalizeJordanPhone(raw) {
+  if (!raw) return null;
+  let digits = String(raw).replace(/[^0-9]/g, '');
+  if (digits.startsWith('00962')) digits = digits.slice(2);
+  if (digits.startsWith('0')) digits = '962' + digits.slice(1);
+  if (!digits.startsWith('962')) digits = '962' + digits.replace(/^962/, '');
+  if (!/^9627\d{8}$/.test(digits)) return null;
+  return digits;
+}
 
 function createOrder({ orderId, amount, currency, customer, items }) {
   if (orders.has(orderId)) {
@@ -25,10 +36,12 @@ function createOrder({ orderId, amount, currency, customer, items }) {
     amount,
     currency: currency || 'JOD',
     customer,
+    customerPhone: normalizeJordanPhone(customer && customer.phone),
     items,
     transactionReference: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    lastReconcileCheckAt: null,
   };
   orders.set(orderId, order);
   return order;
@@ -37,7 +50,6 @@ function createOrder({ orderId, amount, currency, customer, items }) {
 function getOrder(orderId) {
   const order = orders.get(orderId);
   if (!order) return null;
-  // Lazily expire stale pending orders when read
   if (
     order.status === 'PENDING_PAYMENT' &&
     Date.now() - new Date(order.createdAt).getTime() > ORDER_TTL_MS
@@ -48,21 +60,27 @@ function getOrder(orderId) {
   return order;
 }
 
-/**
- * Marks an order PAID — the ONLY function allowed to do so.
- * Guards against:
- *  - Marking an order that doesn't exist
- *  - Marking the same transactionReference twice (idempotency)
- *  - Marking an order that's already PAID/FAILED/EXPIRED
- */
+function listPendingOrders() {
+  return Array.from(orders.keys())
+    .map(getOrder)
+    .filter((o) => o && o.status === 'PENDING_PAYMENT');
+}
+
+function shouldReconcileNow(order) {
+  if (!order.lastReconcileCheckAt) return true;
+  return Date.now() - new Date(order.lastReconcileCheckAt).getTime() > RECONCILE_THROTTLE_MS;
+}
+
+function markReconcileChecked(orderId) {
+  const order = orders.get(orderId);
+  if (order) order.lastReconcileCheckAt = new Date().toISOString();
+}
+
 function markOrderPaid(orderId, transactionReference) {
   if (!transactionReference) {
     throw new Error('transactionReference is required to mark an order PAID');
   }
   if (seenTransactionRefs.has(transactionReference)) {
-    // Already processed this exact transaction before — do nothing, but
-    // don't treat it as an error either (webhooks can be retried by the
-    // provider; that's normal and must be handled gracefully).
     return { alreadyProcessed: true, order: getOrder(orderId) };
   }
   const order = orders.get(orderId);
@@ -70,7 +88,6 @@ function markOrderPaid(orderId, transactionReference) {
     throw new Error(`Cannot mark unknown order ${orderId} as PAID`);
   }
   if (order.status !== 'PENDING_PAYMENT') {
-    // Order was already PAID, FAILED, or EXPIRED — do not overwrite silently.
     return { alreadyProcessed: true, order };
   }
   order.status = 'PAID';
@@ -83,11 +100,20 @@ function markOrderPaid(orderId, transactionReference) {
 function markOrderFailed(orderId, reason) {
   const order = orders.get(orderId);
   if (!order) return null;
-  if (order.status !== 'PENDING_PAYMENT') return order; // don't overwrite a final state
+  if (order.status !== 'PENDING_PAYMENT') return order;
   order.status = 'FAILED';
   order.failureReason = reason || 'unknown';
   order.updatedAt = new Date().toISOString();
   return order;
 }
 
-module.exports = { createOrder, getOrder, markOrderPaid, markOrderFailed };
+module.exports = {
+  createOrder,
+  getOrder,
+  listPendingOrders,
+  shouldReconcileNow,
+  markReconcileChecked,
+  markOrderPaid,
+  markOrderFailed,
+  normalizeJordanPhone,
+};
