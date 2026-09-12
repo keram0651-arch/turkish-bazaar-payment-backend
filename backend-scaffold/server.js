@@ -1,119 +1,56 @@
-/**
- * Order store — minimal in-memory implementation.
- *
- * IMPORTANT: this uses a plain in-memory Map so the scaffold runs with zero
- * setup. Replace this with a real database (Postgres/SQLite/etc.) before
- * accepting real payments — an in-memory store is wiped every time the
- * server restarts, which is not acceptable for real orders.
- *
- * Order status values match what the frontend expects:
- *   PENDING_PAYMENT | PAID | FAILED | EXPIRED
- */
+require('dotenv').config();
+const express = require('express');
 
-const orders = new Map();
-const seenTransactionRefs = new Set(); // idempotency guard
+const ordersRoute = require('./routes/orders');
+const dinarakPayRoute = require('./routes/dinarak-pay');
+const dinarakWebhookRoute = require('./routes/dinarak-webhook');
+const dinarakResolveRoute = require('./routes/dinarak-resolve');
+const store = require('./orders');
+const dinarak = require('./services/dinarakAdapter');
 
-const ORDER_TTL_MS = 30 * 60 * 1000; // 30 minutes before a pending order is considered expired
-const RECONCILE_THROTTLE_MS = 5 * 1000; // don't call Dinarak more than once per 5s per order
+const app = express();
 
-function normalizeJordanPhone(raw) {
-  if (!raw) return null;
-  let digits = String(raw).replace(/[^0-9]/g, '');
-  if (digits.startsWith('00962')) digits = digits.slice(2);
-  if (digits.startsWith('0')) digits = '962' + digits.slice(1);
-  if (!digits.startsWith('962')) digits = '962' + digits.replace(/^962/, '');
-  if (!/^9627\d{8}$/.test(digits)) return null;
-  return digits;
-}
+const allowedOrigin = process.env.STOREFRONT_ORIGIN || '*';
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', allowedOrigin);
+  res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
 
-function createOrder({ orderId, amount, currency, customer, items }) {
-  if (orders.has(orderId)) {
-    throw new Error(`Order ${orderId} already exists`);
+app.get('/health', (req, res) => res.json({ ok: true }));
+
+app.use('/webhooks/dinarak', dinarakWebhookRoute);
+
+app.use(express.json());
+app.use('/api/orders', ordersRoute);
+app.use('/api/orders', dinarakPayRoute);
+app.use('/api/orders', dinarakResolveRoute);
+
+const SWEEP_INTERVAL_MS = 20 * 1000;
+setInterval(async () => {
+  if (!dinarak.isConfigured()) return;
+  const pending = store.listPendingOrders();
+  for (const order of pending) {
+    if (!store.shouldReconcileNow(order)) continue;
+    store.markReconcileChecked(order.orderId);
+    try {
+      const result = await dinarak.reconcilePendingOrder(order);
+      if (result.matched) store.markOrderPaid(order.orderId, result.transactionId);
+    } catch (e) {
+      console.error(`[dinarak-sweep] reconcile failed for ${order.orderId}:`, e.message);
+    }
   }
-  const order = {
-    orderId,
-    status: 'PENDING_PAYMENT',
-    amount,
-    currency: currency || 'JOD',
-    customer,
-    customerPhone: normalizeJordanPhone(customer && customer.phone),
-    items,
-    transactionReference: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    lastReconcileCheckAt: null,
-  };
-  orders.set(orderId, order);
-  return order;
-}
+}, SWEEP_INTERVAL_MS);
 
-function getOrder(orderId) {
-  const order = orders.get(orderId);
-  if (!order) return null;
-  if (
-    order.status === 'PENDING_PAYMENT' &&
-    Date.now() - new Date(order.createdAt).getTime() > ORDER_TTL_MS
-  ) {
-    order.status = 'EXPIRED';
-    order.updatedAt = new Date().toISOString();
+const port = process.env.PORT || 4000;
+app.listen(port, () => {
+  console.log(`Turkish Bazaar payment backend listening on port ${port}`);
+  if (!dinarak.isConfigured()) {
+    console.log('Dinarak GetBusinessTransactions is not configured — online payment will respond with "gateway_not_configured" until DINARAK_API_BASE_URL / DINARAK_BASIC_AUTH_USERNAME / DINARAK_BASIC_AUTH_PASSWORD / DINARAK_MERCHANT_ALIAS are set.');
   }
-  return order;
-}
-
-function listPendingOrders() {
-  return Array.from(orders.keys())
-    .map(getOrder)
-    .filter((o) => o && o.status === 'PENDING_PAYMENT');
-}
-
-function shouldReconcileNow(order) {
-  if (!order.lastReconcileCheckAt) return true;
-  return Date.now() - new Date(order.lastReconcileCheckAt).getTime() > RECONCILE_THROTTLE_MS;
-}
-
-function markReconcileChecked(orderId) {
-  const order = orders.get(orderId);
-  if (order) order.lastReconcileCheckAt = new Date().toISOString();
-}
-
-function markOrderPaid(orderId, transactionReference) {
-  if (!transactionReference) {
-    throw new Error('transactionReference is required to mark an order PAID');
+  if (!dinarak.isAliasResolveConfigured()) {
+    console.log('DINARAK_BEARER_TOKEN not set — phone validation via AliasResolve is disabled (optional, not required for payments to work).');
   }
-  if (seenTransactionRefs.has(transactionReference)) {
-    return { alreadyProcessed: true, order: getOrder(orderId) };
-  }
-  const order = orders.get(orderId);
-  if (!order) {
-    throw new Error(`Cannot mark unknown order ${orderId} as PAID`);
-  }
-  if (order.status !== 'PENDING_PAYMENT') {
-    return { alreadyProcessed: true, order };
-  }
-  order.status = 'PAID';
-  order.transactionReference = transactionReference;
-  order.updatedAt = new Date().toISOString();
-  seenTransactionRefs.add(transactionReference);
-  return { alreadyProcessed: false, order };
-}
-
-function markOrderFailed(orderId, reason) {
-  const order = orders.get(orderId);
-  if (!order) return null;
-  if (order.status !== 'PENDING_PAYMENT') return order;
-  order.status = 'FAILED';
-  order.failureReason = reason || 'unknown';
-  order.updatedAt = new Date().toISOString();
-  return order;
-}
-
-module.exports = {
-  createOrder,
-  getOrder,
-  listPendingOrders,
-  shouldReconcileNow,
-  markReconcileChecked,
-  markOrderPaid,
-  markOrderFailed,
-  normalizeJordanPhone,
-};
+});
