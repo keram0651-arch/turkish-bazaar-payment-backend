@@ -1,33 +1,59 @@
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
 
 const ordersRoute = require('./routes/orders');
 const dinarakPayRoute = require('./routes/dinarak-pay');
 const dinarakWebhookRoute = require('./routes/dinarak-webhook');
 const dinarakResolveRoute = require('./routes/dinarak-resolve');
+const pushRoute = require('./routes/push');
 const store = require('./orders');
 const dinarak = require('./services/dinarakAdapter');
+const whatsapp = require('./services/whatsappNotifier');
+const email = require('./services/emailNotifier');
+const pushNotifier = require('./services/pushNotifier');
 
 const app = express();
 
-const allowedOrigin = process.env.STOREFRONT_ORIGIN || '*';
+// Minimal CORS middleware — avoids an extra dependency for one header.
+// Left open (*) rather than locked to STOREFRONT_ORIGIN: the admin panel is
+// a separate static HTML file opened from its own origin (often a local
+// file, i.e. Origin: null), and nothing here relies on cookies — the two
+// endpoints that expose customer data require an explicit X-Admin-Key
+// header instead, which only code that already has the key can send.
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', allowedOrigin);
-  res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PATCH,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, X-Admin-Key');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
 
 app.get('/health', (req, res) => res.json({ ok: true }));
 
+// IMPORTANT: mounted BEFORE express.json() below — kept for a future real
+// webhook mechanism, even though nothing currently calls it (see
+// services/dinarakAdapter.js for why the primary path is poll & reconcile,
+// not a webhook).
 app.use('/webhooks/dinarak', dinarakWebhookRoute);
 
 app.use(express.json());
 app.use('/api/orders', ordersRoute);
 app.use('/api/orders', dinarakPayRoute);
 app.use('/api/orders', dinarakResolveRoute);
+app.use('/api/push', pushRoute);
 
+// Serves public/admin.html + public/push-sw.js over HTTPS (this same Render
+// URL) — required for Web Push: browsers refuse to grant push subscriptions
+// to a page opened as a local file:// download. Open the admin panel at
+// https://<this-service>.onrender.com/admin.html, not the downloaded copy,
+// for the "Enable Notifications" button to work.
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Background reconciliation sweep — a safety net independent of the
+// frontend's own polling (e.g. a customer who pays after closing the tab).
+// Cheap because the store is in-memory and orders are few; each order is
+// still individually throttled via store.shouldReconcileNow().
 const SWEEP_INTERVAL_MS = 20 * 1000;
 setInterval(async () => {
   if (!dinarak.isConfigured()) return;
@@ -39,6 +65,7 @@ setInterval(async () => {
       const result = await dinarak.reconcilePendingOrder(order);
       if (result.matched) store.markOrderPaid(order.orderId, result.transactionId);
     } catch (e) {
+      // Swallow — the next sweep or the customer's own status poll retries.
       console.error(`[dinarak-sweep] reconcile failed for ${order.orderId}:`, e.message);
     }
   }
@@ -48,9 +75,21 @@ const port = process.env.PORT || 4000;
 app.listen(port, () => {
   console.log(`Turkish Bazaar payment backend listening on port ${port}`);
   if (!dinarak.isConfigured()) {
-    console.log('Dinarak GetBusinessTransactions is not configured — online payment will respond with "gateway_not_configured" until DINARAK_API_BASE_URL / DINARAK_BASIC_AUTH_USERNAME / DINARAK_BASIC_AUTH_PASSWORD / DINARAK_MERCHANT_ALIAS are set.');
+    console.log('⚠️  Dinarak GetBusinessTransactions is not configured (DINARAK_API_BASE_URL / DINARAK_BASIC_AUTH_USERNAME / DINARAK_BASIC_AUTH_PASSWORD / DINARAK_MERCHANT_ALIAS) — online payment will respond with "gateway_not_configured" until these are set.');
   }
   if (!dinarak.isAliasResolveConfigured()) {
-    console.log('DINARAK_BEARER_TOKEN not set — phone validation via AliasResolve is disabled (optional, not required for payments to work).');
+    console.log('ℹ️  DINARAK_BEARER_TOKEN not set — phone validation via AliasResolve is disabled (optional, not required for payments to work).');
+  }
+  if (!process.env.ADMIN_API_KEY) {
+    console.log('⚠️  ADMIN_API_KEY is not set — the admin panel (order list / status updates) will respond with "admin_key_not_configured" until it is set.');
+  }
+  if (!whatsapp.isConfigured()) {
+    console.log('ℹ️  CALLMEBOT_PHONE / CALLMEBOT_APIKEY not set — automatic WhatsApp order notifications are disabled until these are set (see services/whatsappNotifier.js for setup steps).');
+  }
+  if (!email.isConfigured()) {
+    console.log('ℹ️  GMAIL_USER / GMAIL_APP_PASSWORD not set — automatic email order notifications are disabled until these are set (see services/emailNotifier.js for setup steps).');
+  }
+  if (!pushNotifier.isConfigured()) {
+    console.log('ℹ️  VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY not set — real push notifications from the admin panel are disabled until these are set (see services/pushNotifier.js and README.md).');
   }
 });

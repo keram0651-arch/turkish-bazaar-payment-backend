@@ -17,9 +17,14 @@ router.post('/:orderId/pay/dinarak', async (req, res) => {
   }
 
   try {
+    // No external call happens here — see services/dinarakAdapter.js for why:
+    // this just returns the alias + amount instructions for the customer to
+    // transfer manually. Verification happens via polling GET /status.
     const result = await dinarak.createPayment(order);
-    return res.json(result);
+    return res.json(result); // { payInstructions: {...} }
   } catch (e) {
+    // Honest failure — matches the frontend's handling. No fake success,
+    // ever, regardless of why the adapter couldn't start a payment.
     const code = e.code || 'unknown_error';
     const status = code === 'gateway_not_configured' || code === 'not_implemented' ? 503 : 502;
     return res.status(status).json({ error: code, message: e.message });

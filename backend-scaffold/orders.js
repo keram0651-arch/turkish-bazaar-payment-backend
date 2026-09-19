@@ -16,23 +16,41 @@ const seenTransactionRefs = new Set(); // idempotency guard
 const ORDER_TTL_MS = 30 * 60 * 1000; // 30 minutes before a pending order is considered expired
 const RECONCILE_THROTTLE_MS = 5 * 1000; // don't call Dinarak more than once per 5s per order
 
+// Fulfillment status — separate from `status` (PENDING_PAYMENT|PAID|FAILED|
+// EXPIRED, which tracks payment). This tracks the merchant's own
+// pack-and-deliver workflow in the admin panel, and applies to every order
+// regardless of payment method (today: cash on delivery only).
+const FULFILLMENT_FLOW = ['new', 'confirmed', 'preparing', 'ready', 'outfordelivery', 'completed'];
+const FULFILLMENT_STATUSES = new Set([...FULFILLMENT_FLOW, 'cancelled']);
+
+/**
+ * Normalize a Jordanian phone number to the 9627xxxxxxxx shape Dinarak's
+ * docs require (AliasResolve's `value` param, and what we match
+ * GetBusinessTransactions' `senderInfo` against). Accepts common local
+ * input shapes like "079 000 0000", "00962790000000", "+962790000000".
+ * Returns null if it doesn't look like a Jordanian mobile number at all —
+ * callers decide whether that's fatal (Dinarak payment) or just means
+ * matching won't be attempted.
+ */
 function normalizeJordanPhone(raw) {
   if (!raw) return null;
   let digits = String(raw).replace(/[^0-9]/g, '');
-  if (digits.startsWith('00962')) digits = digits.slice(2);
-  if (digits.startsWith('0')) digits = '962' + digits.slice(1);
+  if (digits.startsWith('00962')) digits = digits.slice(2); // 00962... -> 962...
+  if (digits.startsWith('0')) digits = '962' + digits.slice(1); // 07... -> 9627...
   if (!digits.startsWith('962')) digits = '962' + digits.replace(/^962/, '');
   if (!/^9627\d{8}$/.test(digits)) return null;
   return digits;
 }
 
-function createOrder({ orderId, amount, currency, customer, items }) {
+function createOrder({ orderId, amount, currency, customer, items, paymentMethod }) {
   if (orders.has(orderId)) {
     throw new Error(`Order ${orderId} already exists`);
   }
   const order = {
     orderId,
     status: 'PENDING_PAYMENT',
+    paymentMethod: paymentMethod || null, // 'cod' today; left null for the (currently unused) Dinarak path
+    fulfillmentStatus: 'new', // see FULFILLMENT_FLOW above — the admin panel drives this
     amount,
     currency: currency || 'JOD',
     customer,
@@ -47,9 +65,38 @@ function createOrder({ orderId, amount, currency, customer, items }) {
   return order;
 }
 
+/**
+ * All orders, most recent first — used by the admin panel.
+ * Also lazily expires stale pending orders, same as getOrder().
+ */
+function listAllOrders() {
+  return Array.from(orders.keys())
+    .map(getOrder)
+    .filter(Boolean)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+/**
+ * Updates an order's fulfillment status (the admin panel's new -> confirmed
+ * -> preparing -> ready -> outfordelivery -> completed flow, or
+ * 'cancelled'). Independent of payment `status` — cancelling an order here
+ * does NOT touch its payment state, and vice versa.
+ */
+function setFulfillmentStatus(orderId, fulfillmentStatus) {
+  if (!FULFILLMENT_STATUSES.has(fulfillmentStatus)) {
+    throw new Error(`Invalid fulfillment status: ${fulfillmentStatus}`);
+  }
+  const order = orders.get(orderId);
+  if (!order) return null;
+  order.fulfillmentStatus = fulfillmentStatus;
+  order.updatedAt = new Date().toISOString();
+  return order;
+}
+
 function getOrder(orderId) {
   const order = orders.get(orderId);
   if (!order) return null;
+  // Lazily expire stale pending orders when read
   if (
     order.status === 'PENDING_PAYMENT' &&
     Date.now() - new Date(order.createdAt).getTime() > ORDER_TTL_MS
@@ -60,12 +107,21 @@ function getOrder(orderId) {
   return order;
 }
 
+/**
+ * All orders still PENDING_PAYMENT (after lazily expiring stale ones) —
+ * used by the background reconciliation sweep in server.js.
+ */
 function listPendingOrders() {
   return Array.from(orders.keys())
     .map(getOrder)
     .filter((o) => o && o.status === 'PENDING_PAYMENT');
 }
 
+/**
+ * True if this order hasn't been checked against Dinarak in the last
+ * RECONCILE_THROTTLE_MS — used to avoid hammering GetBusinessTransactions
+ * every time the frontend polls /status.
+ */
 function shouldReconcileNow(order) {
   if (!order.lastReconcileCheckAt) return true;
   return Date.now() - new Date(order.lastReconcileCheckAt).getTime() > RECONCILE_THROTTLE_MS;
@@ -76,11 +132,21 @@ function markReconcileChecked(orderId) {
   if (order) order.lastReconcileCheckAt = new Date().toISOString();
 }
 
+/**
+ * Marks an order PAID — the ONLY function allowed to do so.
+ * Guards against:
+ *  - Marking an order that doesn't exist
+ *  - Marking the same transactionReference twice (idempotency)
+ *  - Marking an order that's already PAID/FAILED/EXPIRED
+ */
 function markOrderPaid(orderId, transactionReference) {
   if (!transactionReference) {
     throw new Error('transactionReference is required to mark an order PAID');
   }
   if (seenTransactionRefs.has(transactionReference)) {
+    // Already processed this exact transaction before — do nothing, but
+    // don't treat it as an error either (a re-check can see the same
+    // transaction again; that's normal and must be handled gracefully).
     return { alreadyProcessed: true, order: getOrder(orderId) };
   }
   const order = orders.get(orderId);
@@ -88,6 +154,7 @@ function markOrderPaid(orderId, transactionReference) {
     throw new Error(`Cannot mark unknown order ${orderId} as PAID`);
   }
   if (order.status !== 'PENDING_PAYMENT') {
+    // Order was already PAID, FAILED, or EXPIRED — do not overwrite silently.
     return { alreadyProcessed: true, order };
   }
   order.status = 'PAID';
@@ -100,7 +167,7 @@ function markOrderPaid(orderId, transactionReference) {
 function markOrderFailed(orderId, reason) {
   const order = orders.get(orderId);
   if (!order) return null;
-  if (order.status !== 'PENDING_PAYMENT') return order;
+  if (order.status !== 'PENDING_PAYMENT') return order; // don't overwrite a final state
   order.status = 'FAILED';
   order.failureReason = reason || 'unknown';
   order.updatedAt = new Date().toISOString();
@@ -110,10 +177,14 @@ function markOrderFailed(orderId, reason) {
 module.exports = {
   createOrder,
   getOrder,
+  listAllOrders,
   listPendingOrders,
   shouldReconcileNow,
   markReconcileChecked,
   markOrderPaid,
   markOrderFailed,
+  setFulfillmentStatus,
   normalizeJordanPhone,
+  FULFILLMENT_FLOW,
+  FULFILLMENT_STATUSES,
 };
