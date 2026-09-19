@@ -1,0 +1,11 @@
+{
+  "name": "Turkish Bazaar — Admin",
+  "short_name": "Turkish Bazaar",
+  "start_url": "/admin.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fdf8f0",
+  "theme_color": "#7a1f2b",
+  "lang": "ar",
+  "icons": []
+}
