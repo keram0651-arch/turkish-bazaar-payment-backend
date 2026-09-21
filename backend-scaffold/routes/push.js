@@ -16,10 +16,10 @@ router.get('/public-key', (req, res) => {
 // browser grants notification permission and returns a PushSubscription.
 // Admin-key gated: this is effectively "register a device to receive our
 // order data", same trust level as reading /api/orders.
-router.post('/subscribe', requireAdminKey, (req, res) => {
+router.post('/subscribe', requireAdminKey, async (req, res) => {
   const sub = req.body && req.body.subscription;
   try {
-    const result = pushNotifier.addSubscription(sub);
+    const result = await pushNotifier.addSubscription(sub);
     res.status(201).json(result);
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -29,10 +29,10 @@ router.post('/subscribe', requireAdminKey, (req, res) => {
 // POST /api/push/unsubscribe — called when the admin panel's "Disable
 // Notifications" toggle is used, or the browser reports the subscription is
 // no longer valid.
-router.post('/unsubscribe', requireAdminKey, (req, res) => {
+router.post('/unsubscribe', requireAdminKey, async (req, res) => {
   const endpoint = req.body && req.body.endpoint;
   if (!endpoint) return res.status(400).json({ error: 'endpoint is required' });
-  const result = pushNotifier.removeSubscription(endpoint);
+  const result = await pushNotifier.removeSubscription(endpoint);
   res.json(result);
 });
 

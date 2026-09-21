@@ -4,7 +4,7 @@ const store = require('../orders');
 const dinarak = require('../services/dinarakAdapter');
 
 router.post('/:orderId/pay/dinarak', async (req, res) => {
-  const order = store.getOrder(req.params.orderId);
+  const order = await store.getOrder(req.params.orderId);
   if (!order) return res.status(404).json({ error: 'Order not found' });
   if (order.status !== 'PENDING_PAYMENT') {
     return res.status(409).json({ error: `Order is already ${order.status}` });

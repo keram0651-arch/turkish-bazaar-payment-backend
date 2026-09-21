@@ -8,13 +8,13 @@ const pushNotifier = require('../services/pushNotifier');
 const requireAdminKey = require('../middleware/requireAdminKey');
 
 // POST /api/orders — create a PENDING_PAYMENT order
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { orderId, amount, currency, customer, items, paymentMethod } = req.body || {};
   if (!orderId || !amount || !customer) {
     return res.status(400).json({ error: 'orderId, amount and customer are required' });
   }
   try {
-    const order = store.createOrder({ orderId, amount, currency, customer, items, paymentMethod });
+    const order = await store.createOrder({ orderId, amount, currency, customer, items, paymentMethod });
     // Best-effort merchant notifications — independent channels, never
     // block or fail the response to the customer, even if unconfigured or
     // a send fails (see services/whatsappNotifier.js, services/emailNotifier.js,
@@ -33,8 +33,9 @@ router.post('/', (req, res) => {
 // GET /api/orders — list every order, most recent first. Used by the admin
 // panel. Exposes customer PII (name/phone/address), so it's gated behind
 // ADMIN_API_KEY (see middleware/requireAdminKey.js).
-router.get('/', requireAdminKey, (req, res) => {
-  const list = store.listAllOrders().map((order) => ({
+router.get('/', requireAdminKey, async (req, res) => {
+  const orders = await store.listAllOrders();
+  const list = orders.map((order) => ({
     orderId: order.orderId,
     status: order.status, // payment status: PENDING_PAYMENT | PAID | FAILED | EXPIRED
     fulfillmentStatus: order.fulfillmentStatus, // new | confirmed | preparing | ready | outfordelivery | completed | cancelled
@@ -53,13 +54,13 @@ router.get('/', requireAdminKey, (req, res) => {
 // PATCH /api/orders/:orderId/fulfillment — admin panel moves an order
 // through new -> confirmed -> preparing -> ready -> outfordelivery ->
 // completed, or marks it cancelled. Independent of Dinarak/payment status.
-router.patch('/:orderId/fulfillment', requireAdminKey, (req, res) => {
+router.patch('/:orderId/fulfillment', requireAdminKey, async (req, res) => {
   const { status } = req.body || {};
   if (!status || !store.FULFILLMENT_STATUSES.has(status)) {
     return res.status(400).json({ error: 'invalid_status', allowed: [...store.FULFILLMENT_STATUSES] });
   }
   try {
-    const order = store.setFulfillmentStatus(req.params.orderId, status);
+    const order = await store.setFulfillmentStatus(req.params.orderId, status);
     if (!order) return res.status(404).json({ error: 'Order not found' });
     res.json({ orderId: order.orderId, fulfillmentStatus: order.fulfillmentStatus });
   } catch (e) {
@@ -74,22 +75,22 @@ router.patch('/:orderId/fulfillment', requireAdminKey, (req, res) => {
 // "pull" equivalent of a webhook, used because no push/webhook mechanism
 // is documented by Dinarak yet. See services/dinarakAdapter.js.
 router.get('/:orderId/status', async (req, res) => {
-  let order = store.getOrder(req.params.orderId);
+  let order = await store.getOrder(req.params.orderId);
   if (!order) return res.status(404).json({ error: 'Order not found' });
 
   if (order.status === 'PENDING_PAYMENT' && dinarak.isConfigured() && store.shouldReconcileNow(order)) {
-    store.markReconcileChecked(order.orderId);
+    await store.markReconcileChecked(order.orderId);
     try {
       const result = await dinarak.reconcilePendingOrder(order);
       if (result.matched) {
-        store.markOrderPaid(order.orderId, result.transactionId);
+        await store.markOrderPaid(order.orderId, result.transactionId);
       }
     } catch (e) {
       // Reconciliation errors never fail the status poll — the customer's
       // screen should keep showing "pending", not an error, while we retry
       // on the next poll/sweep.
     }
-    order = store.getOrder(order.orderId);
+    order = await store.getOrder(order.orderId);
   }
 
   res.json({

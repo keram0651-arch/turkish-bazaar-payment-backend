@@ -22,6 +22,137 @@ process.env.GMAIL_APP_PASSWORD = 'test-app-password';
 process.env.VAPID_PUBLIC_KEY = 'test-vapid-public-key';
 process.env.VAPID_PRIVATE_KEY = 'test-vapid-private-key';
 process.env.VAPID_SUBJECT = 'mailto:test@example.com';
+process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
+
+// Mock pg BEFORE anything requires db.js (via orders.js / pushNotifier.js /
+// server.js), so no real Postgres connection is ever attempted in this
+// test. This is a small in-memory fake that recognizes the exact SQL
+// strings db.js/orders.js/services/pushNotifier.js send, and replicates
+// just enough real-Postgres behavior (RETURNING *, the '23505'
+// unique-violation error code for a duplicate order_id, ON CONFLICT ...
+// DO UPDATE as an upsert) to exercise the same code paths a real database
+// would.
+function collapse(sql) { return sql.replace(/\s+/g, ' ').trim(); }
+function clone(row) { return row ? { ...row } : row; }
+
+class FakePgPool {
+  constructor() {
+    this.orders = new Map(); // order_id -> row
+    this.pushSubs = new Map(); // endpoint -> row
+  }
+
+  async query(sql, params = []) {
+    const q = collapse(sql);
+
+    if (q.startsWith('CREATE TABLE')) return { rows: [] };
+
+    if (q.startsWith('INSERT INTO orders')) {
+      const [order_id, payment_method, amount, currency, customer, customer_phone, items] = params;
+      if (this.orders.has(order_id)) {
+        const err = new Error('duplicate key value violates unique constraint "orders_pkey"');
+        err.code = '23505';
+        throw err;
+      }
+      const now = new Date();
+      const row = {
+        order_id, status: 'PENDING_PAYMENT', fulfillment_status: 'new',
+        payment_method, amount, currency, customer, customer_phone,
+        items: typeof items === 'string' ? JSON.parse(items) : items,
+        transaction_reference: null, failure_reason: null,
+        last_reconcile_check_at: null,
+        created_at: now, updated_at: now,
+      };
+      this.orders.set(order_id, row);
+      return { rows: [clone(row)] };
+    }
+
+    if (q.startsWith('SELECT * FROM orders WHERE order_id = $1')) {
+      const row = this.orders.get(params[0]);
+      return { rows: row ? [clone(row)] : [] };
+    }
+
+    if (q.startsWith("UPDATE orders SET status='EXPIRED'")) {
+      const row = this.orders.get(params[0]);
+      if (row && row.status === 'PENDING_PAYMENT') {
+        row.status = 'EXPIRED'; row.updated_at = new Date();
+        return { rows: [clone(row)] };
+      }
+      return { rows: [] };
+    }
+
+    if (q.startsWith('SELECT * FROM orders ORDER BY created_at DESC')) {
+      const rows = [...this.orders.values()].sort((a, b) => b.created_at - a.created_at).map(clone);
+      return { rows };
+    }
+
+    if (q.startsWith('UPDATE orders SET last_reconcile_check_at')) {
+      const row = this.orders.get(params[0]);
+      if (row) row.last_reconcile_check_at = new Date();
+      return { rows: [] };
+    }
+
+    if (q.startsWith('SELECT * FROM orders WHERE transaction_reference = $1')) {
+      const row = [...this.orders.values()].find((o) => o.transaction_reference === params[0]);
+      return { rows: row ? [clone(row)] : [] };
+    }
+
+    if (q.startsWith("UPDATE orders SET status='PAID'")) {
+      const row = this.orders.get(params[0]);
+      if (row && row.status === 'PENDING_PAYMENT') {
+        row.status = 'PAID'; row.transaction_reference = params[1]; row.updated_at = new Date();
+        return { rows: [clone(row)] };
+      }
+      return { rows: [] };
+    }
+
+    if (q.startsWith("UPDATE orders SET status='FAILED'")) {
+      const row = this.orders.get(params[0]);
+      if (row && row.status === 'PENDING_PAYMENT') {
+        row.status = 'FAILED'; row.failure_reason = params[1]; row.updated_at = new Date();
+        return { rows: [clone(row)] };
+      }
+      return { rows: [] };
+    }
+
+    if (q.startsWith('UPDATE orders SET fulfillment_status')) {
+      const row = this.orders.get(params[0]);
+      if (row) {
+        row.fulfillment_status = params[1]; row.updated_at = new Date();
+        return { rows: [clone(row)] };
+      }
+      return { rows: [] };
+    }
+
+    if (q.startsWith('INSERT INTO push_subscriptions')) {
+      const [endpoint, subscription] = params;
+      this.pushSubs.set(endpoint, { endpoint, subscription, created_at: new Date() });
+      return { rows: [] };
+    }
+
+    if (q.startsWith('SELECT COUNT(*)::int AS count FROM push_subscriptions')) {
+      return { rows: [{ count: this.pushSubs.size }] };
+    }
+
+    if (q.startsWith('DELETE FROM push_subscriptions')) {
+      this.pushSubs.delete(params[0]);
+      return { rows: [] };
+    }
+
+    if (q.startsWith('SELECT endpoint, subscription FROM push_subscriptions')) {
+      return { rows: [...this.pushSubs.values()].map((r) => ({ endpoint: r.endpoint, subscription: r.subscription })) };
+    }
+
+    throw new Error('Unmocked SQL in test pg mock: ' + q);
+  }
+}
+
+const pgPath = require.resolve('pg');
+require.cache[pgPath] = {
+  id: pgPath,
+  filename: pgPath,
+  loaded: true,
+  exports: { Pool: FakePgPool },
+};
 
 // Mock nodemailer BEFORE anything requires services/emailNotifier.js, so no
 // real SMTP connection is ever attempted in this test.

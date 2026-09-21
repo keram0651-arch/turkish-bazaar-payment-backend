@@ -17,7 +17,7 @@ const dinarak = require('../services/dinarakAdapter');
 
 // Keep the raw body around for signature verification (exact method TBD
 // once Dinarak documents it — see the adapter file).
-router.post('/', express.raw({ type: '*/*' }), (req, res) => {
+router.post('/', express.raw({ type: '*/*' }), async (req, res) => {
   const rawBody = req.body; // Buffer
 
   if (!dinarak.verifyWebhookSignature(rawBody, req.headers)) {
@@ -38,11 +38,11 @@ router.post('/', express.raw({ type: '*/*' }), (req, res) => {
   }
 
   if (status === 'SUCCESS') {
-    const result = store.markOrderPaid(orderReference, transactionId);
+    const result = await store.markOrderPaid(orderReference, transactionId);
     return res.json({ received: true, alreadyProcessed: result.alreadyProcessed });
   }
 
-  store.markOrderFailed(orderReference, status);
+  await store.markOrderFailed(orderReference, status);
   return res.json({ received: true });
 });
 

@@ -10,6 +10,10 @@
  * public/admin.html) — a downloaded local copy (file://) cannot receive
  * push notifications, browsers don't allow it.
  *
+ * Subscriptions are stored in Postgres (see db.js), not in memory — so
+ * "Enable Notifications" only has to be tapped once per device, ever, even
+ * across server restarts or Render's free-tier spin-down.
+ *
  * How it fits together:
  *   1. The admin panel (public/admin.html), when you tap "Enable
  *      Notifications", asks the browser to subscribe to push and POSTs
@@ -30,6 +34,7 @@
  */
 
 const webpush = require('web-push');
+const db = require('../db');
 
 function isConfigured() {
   return Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
@@ -46,19 +51,23 @@ function ensureConfigured() {
   configured = true;
 }
 
-// In-memory, same tradeoff as orders.js — wiped on restart, fine for a
-// single merchant's own device(s) re-subscribing takes one tap.
-const subscriptions = new Map(); // endpoint -> subscription object
-
-function addSubscription(sub) {
+async function addSubscription(sub) {
   if (!sub || !sub.endpoint) throw new Error('Invalid push subscription');
-  subscriptions.set(sub.endpoint, sub);
-  return { count: subscriptions.size };
+  const pool = db.getPool();
+  await pool.query(
+    `INSERT INTO push_subscriptions (endpoint, subscription) VALUES ($1, $2)
+     ON CONFLICT (endpoint) DO UPDATE SET subscription = EXCLUDED.subscription`,
+    [sub.endpoint, sub]
+  );
+  const { rows } = await pool.query(`SELECT COUNT(*)::int AS count FROM push_subscriptions`);
+  return { count: rows[0].count };
 }
 
-function removeSubscription(endpoint) {
-  subscriptions.delete(endpoint);
-  return { count: subscriptions.size };
+async function removeSubscription(endpoint) {
+  const pool = db.getPool();
+  await pool.query(`DELETE FROM push_subscriptions WHERE endpoint = $1`, [endpoint]);
+  const { rows } = await pool.query(`SELECT COUNT(*)::int AS count FROM push_subscriptions`);
+  return { count: rows[0].count };
 }
 
 /**
@@ -67,6 +76,8 @@ function removeSubscription(endpoint) {
 async function notifyNewOrder(order) {
   if (!isConfigured()) return { sent: 0, reason: 'not_configured' };
   ensureConfigured();
+  const pool = db.getPool();
+  const { rows } = await pool.query(`SELECT endpoint, subscription FROM push_subscriptions`);
   const c = order.customer || {};
   const payload = JSON.stringify({
     title: `New order #${order.orderId}`,
@@ -76,20 +87,20 @@ async function notifyNewOrder(order) {
   let sent = 0;
   const deadEndpoints = [];
   await Promise.all(
-    Array.from(subscriptions.values()).map(async (sub) => {
+    rows.map(async (row) => {
       try {
-        await webpush.sendNotification(sub, payload);
+        await webpush.sendNotification(row.subscription, payload);
         sent++;
       } catch (e) {
         // 404/410 = the browser unsubscribed or the subscription expired —
         // stop trying it. Any other error is transient/unrelated; leave it.
-        if (e.statusCode === 404 || e.statusCode === 410) deadEndpoints.push(sub.endpoint);
+        if (e.statusCode === 404 || e.statusCode === 410) deadEndpoints.push(row.endpoint);
         else console.error('[push] send failed:', e.statusCode || '', e.message);
       }
     })
   );
-  deadEndpoints.forEach(removeSubscription);
-  return { sent, total: subscriptions.size };
+  await Promise.all(deadEndpoints.map(removeSubscription));
+  return { sent, total: rows.length - deadEndpoints.length };
 }
 
 module.exports = { isConfigured, addSubscription, removeSubscription, notifyNewOrder };

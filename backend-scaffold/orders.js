@@ -1,17 +1,18 @@
 /**
- * Order store — minimal in-memory implementation.
+ * Order store — persistent, backed by Postgres via db.js (works with
+ * Supabase's free Postgres, or any standard Postgres connection string).
  *
- * IMPORTANT: this uses a plain in-memory Map so the scaffold runs with zero
- * setup. Replace this with a real database (Postgres/SQLite/etc.) before
- * accepting real payments — an in-memory store is wiped every time the
- * server restarts, which is not acceptable for real orders.
+ * Every function here is async now (it talks to a real database) — callers
+ * must `await` them. This replaced an earlier in-memory-Map version; that
+ * version is gone on purpose, not kept as a fallback, so there is no way to
+ * silently end up back on non-persistent storage without DATABASE_URL being
+ * set loudly failing first (see db.js).
  *
  * Order status values match what the frontend expects:
  *   PENDING_PAYMENT | PAID | FAILED | EXPIRED
  */
 
-const orders = new Map();
-const seenTransactionRefs = new Set(); // idempotency guard
+const db = require('./db');
 
 const ORDER_TTL_MS = 30 * 60 * 1000; // 30 minutes before a pending order is considered expired
 const RECONCILE_THROTTLE_MS = 5 * 1000; // don't call Dinarak more than once per 5s per order
@@ -42,38 +43,152 @@ function normalizeJordanPhone(raw) {
   return digits;
 }
 
-function createOrder({ orderId, amount, currency, customer, items, paymentMethod }) {
-  if (orders.has(orderId)) {
-    throw new Error(`Order ${orderId} already exists`);
-  }
-  const order = {
-    orderId,
-    status: 'PENDING_PAYMENT',
-    paymentMethod: paymentMethod || null, // 'cod' today; left null for the (currently unused) Dinarak path
-    fulfillmentStatus: 'new', // see FULFILLMENT_FLOW above — the admin panel drives this
-    amount,
-    currency: currency || 'JOD',
-    customer,
-    customerPhone: normalizeJordanPhone(customer && customer.phone),
-    items,
-    transactionReference: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    lastReconcileCheckAt: null,
+function rowToOrder(row) {
+  if (!row) return null;
+  return {
+    orderId: row.order_id,
+    status: row.status,
+    fulfillmentStatus: row.fulfillment_status,
+    paymentMethod: row.payment_method,
+    amount: Number(row.amount),
+    currency: row.currency,
+    customer: row.customer,
+    customerPhone: row.customer_phone,
+    items: row.items,
+    transactionReference: row.transaction_reference,
+    failureReason: row.failure_reason || undefined,
+    lastReconcileCheckAt: row.last_reconcile_check_at
+      ? new Date(row.last_reconcile_check_at).toISOString()
+      : null,
+    createdAt: new Date(row.created_at).toISOString(),
+    updatedAt: new Date(row.updated_at).toISOString(),
   };
-  orders.set(orderId, order);
+}
+
+async function createOrder({ orderId, amount, currency, customer, items, paymentMethod }) {
+  const pool = db.getPool();
+  const customerPhone = normalizeJordanPhone(customer && customer.phone);
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO orders (order_id, payment_method, amount, currency, customer, customer_phone, items)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       RETURNING *`,
+      [orderId, paymentMethod || null, amount, currency || 'JOD', customer, customerPhone, JSON.stringify(items || [])]
+    );
+    return rowToOrder(rows[0]);
+  } catch (e) {
+    if (e.code === '23505') {
+      // unique_violation on order_id's primary key
+      throw new Error(`Order ${orderId} already exists`);
+    }
+    throw e;
+  }
+}
+
+/**
+ * Looks up one order by id. Lazily expires it (PENDING_PAYMENT -> EXPIRED)
+ * if it's been sitting unpaid past ORDER_TTL_MS, same as before.
+ */
+async function getOrder(orderId) {
+  const pool = db.getPool();
+  const { rows } = await pool.query(`SELECT * FROM orders WHERE order_id = $1`, [orderId]);
+  let order = rowToOrder(rows[0]);
+  if (!order) return null;
+  if (order.status === 'PENDING_PAYMENT' && Date.now() - new Date(order.createdAt).getTime() > ORDER_TTL_MS) {
+    const { rows: updated } = await pool.query(
+      `UPDATE orders SET status='EXPIRED', updated_at=now() WHERE order_id=$1 AND status='PENDING_PAYMENT' RETURNING *`,
+      [orderId]
+    );
+    if (updated[0]) order = rowToOrder(updated[0]);
+  }
   return order;
 }
 
 /**
- * All orders, most recent first — used by the admin panel.
- * Also lazily expires stale pending orders, same as getOrder().
+ * All orders, most recent first — used by the admin panel. Also lazily
+ * expires any stale pending orders found in the batch.
  */
-function listAllOrders() {
-  return Array.from(orders.keys())
-    .map(getOrder)
-    .filter(Boolean)
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+async function listAllOrders() {
+  const pool = db.getPool();
+  const { rows } = await pool.query(`SELECT * FROM orders ORDER BY created_at DESC`);
+  const results = [];
+  for (const row of rows) {
+    let order = rowToOrder(row);
+    if (order.status === 'PENDING_PAYMENT' && Date.now() - new Date(order.createdAt).getTime() > ORDER_TTL_MS) {
+      order = await getOrder(order.orderId); // reuse the single expiry code path above
+    }
+    results.push(order);
+  }
+  return results;
+}
+
+/**
+ * All orders still PENDING_PAYMENT (after lazily expiring stale ones) —
+ * used by the background reconciliation sweep in server.js.
+ */
+async function listPendingOrders() {
+  const all = await listAllOrders();
+  return all.filter((o) => o.status === 'PENDING_PAYMENT');
+}
+
+/**
+ * True if this order hasn't been checked against Dinarak in the last
+ * RECONCILE_THROTTLE_MS — used to avoid hammering GetBusinessTransactions
+ * every time the frontend polls /status. Pure function, no DB access.
+ */
+function shouldReconcileNow(order) {
+  if (!order.lastReconcileCheckAt) return true;
+  return Date.now() - new Date(order.lastReconcileCheckAt).getTime() > RECONCILE_THROTTLE_MS;
+}
+
+async function markReconcileChecked(orderId) {
+  const pool = db.getPool();
+  await pool.query(`UPDATE orders SET last_reconcile_check_at = now() WHERE order_id = $1`, [orderId]);
+}
+
+/**
+ * Marks an order PAID — the ONLY function allowed to do so.
+ * Guards against:
+ *  - Marking an order that doesn't exist
+ *  - Marking the same transactionReference twice (idempotency, checked
+ *    across ALL orders, matching the previous in-memory behavior)
+ *  - Marking an order that's already PAID/FAILED/EXPIRED
+ */
+async function markOrderPaid(orderId, transactionReference) {
+  if (!transactionReference) {
+    throw new Error('transactionReference is required to mark an order PAID');
+  }
+  const pool = db.getPool();
+  const { rows: existing } = await pool.query(
+    `SELECT * FROM orders WHERE transaction_reference = $1 LIMIT 1`,
+    [transactionReference]
+  );
+  if (existing.length) {
+    return { alreadyProcessed: true, order: await getOrder(orderId) };
+  }
+  const { rows } = await pool.query(
+    `UPDATE orders SET status='PAID', transaction_reference=$2, updated_at=now()
+     WHERE order_id=$1 AND status='PENDING_PAYMENT'
+     RETURNING *`,
+    [orderId, transactionReference]
+  );
+  if (!rows.length) {
+    const current = await getOrder(orderId);
+    if (!current) throw new Error(`Cannot mark unknown order ${orderId} as PAID`);
+    return { alreadyProcessed: true, order: current }; // already PAID/FAILED/EXPIRED
+  }
+  return { alreadyProcessed: false, order: rowToOrder(rows[0]) };
+}
+
+async function markOrderFailed(orderId, reason) {
+  const pool = db.getPool();
+  const { rows } = await pool.query(
+    `UPDATE orders SET status='FAILED', failure_reason=$2, updated_at=now()
+     WHERE order_id=$1 AND status='PENDING_PAYMENT' RETURNING *`,
+    [orderId, reason || 'unknown']
+  );
+  if (rows.length) return rowToOrder(rows[0]);
+  return getOrder(orderId); // null if unknown, or the existing final state — don't overwrite silently
 }
 
 /**
@@ -82,96 +197,16 @@ function listAllOrders() {
  * 'cancelled'). Independent of payment `status` — cancelling an order here
  * does NOT touch its payment state, and vice versa.
  */
-function setFulfillmentStatus(orderId, fulfillmentStatus) {
+async function setFulfillmentStatus(orderId, fulfillmentStatus) {
   if (!FULFILLMENT_STATUSES.has(fulfillmentStatus)) {
     throw new Error(`Invalid fulfillment status: ${fulfillmentStatus}`);
   }
-  const order = orders.get(orderId);
-  if (!order) return null;
-  order.fulfillmentStatus = fulfillmentStatus;
-  order.updatedAt = new Date().toISOString();
-  return order;
-}
-
-function getOrder(orderId) {
-  const order = orders.get(orderId);
-  if (!order) return null;
-  // Lazily expire stale pending orders when read
-  if (
-    order.status === 'PENDING_PAYMENT' &&
-    Date.now() - new Date(order.createdAt).getTime() > ORDER_TTL_MS
-  ) {
-    order.status = 'EXPIRED';
-    order.updatedAt = new Date().toISOString();
-  }
-  return order;
-}
-
-/**
- * All orders still PENDING_PAYMENT (after lazily expiring stale ones) —
- * used by the background reconciliation sweep in server.js.
- */
-function listPendingOrders() {
-  return Array.from(orders.keys())
-    .map(getOrder)
-    .filter((o) => o && o.status === 'PENDING_PAYMENT');
-}
-
-/**
- * True if this order hasn't been checked against Dinarak in the last
- * RECONCILE_THROTTLE_MS — used to avoid hammering GetBusinessTransactions
- * every time the frontend polls /status.
- */
-function shouldReconcileNow(order) {
-  if (!order.lastReconcileCheckAt) return true;
-  return Date.now() - new Date(order.lastReconcileCheckAt).getTime() > RECONCILE_THROTTLE_MS;
-}
-
-function markReconcileChecked(orderId) {
-  const order = orders.get(orderId);
-  if (order) order.lastReconcileCheckAt = new Date().toISOString();
-}
-
-/**
- * Marks an order PAID — the ONLY function allowed to do so.
- * Guards against:
- *  - Marking an order that doesn't exist
- *  - Marking the same transactionReference twice (idempotency)
- *  - Marking an order that's already PAID/FAILED/EXPIRED
- */
-function markOrderPaid(orderId, transactionReference) {
-  if (!transactionReference) {
-    throw new Error('transactionReference is required to mark an order PAID');
-  }
-  if (seenTransactionRefs.has(transactionReference)) {
-    // Already processed this exact transaction before — do nothing, but
-    // don't treat it as an error either (a re-check can see the same
-    // transaction again; that's normal and must be handled gracefully).
-    return { alreadyProcessed: true, order: getOrder(orderId) };
-  }
-  const order = orders.get(orderId);
-  if (!order) {
-    throw new Error(`Cannot mark unknown order ${orderId} as PAID`);
-  }
-  if (order.status !== 'PENDING_PAYMENT') {
-    // Order was already PAID, FAILED, or EXPIRED — do not overwrite silently.
-    return { alreadyProcessed: true, order };
-  }
-  order.status = 'PAID';
-  order.transactionReference = transactionReference;
-  order.updatedAt = new Date().toISOString();
-  seenTransactionRefs.add(transactionReference);
-  return { alreadyProcessed: false, order };
-}
-
-function markOrderFailed(orderId, reason) {
-  const order = orders.get(orderId);
-  if (!order) return null;
-  if (order.status !== 'PENDING_PAYMENT') return order; // don't overwrite a final state
-  order.status = 'FAILED';
-  order.failureReason = reason || 'unknown';
-  order.updatedAt = new Date().toISOString();
-  return order;
+  const pool = db.getPool();
+  const { rows } = await pool.query(
+    `UPDATE orders SET fulfillment_status=$2, updated_at=now() WHERE order_id=$1 RETURNING *`,
+    [orderId, fulfillmentStatus]
+  );
+  return rowToOrder(rows[0]) || null;
 }
 
 module.exports = {

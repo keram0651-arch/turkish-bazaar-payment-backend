@@ -63,9 +63,44 @@ A PAID or FAILED order can never be silently overwritten by a later event.
 ```
 cd backend-scaffold
 npm install
-cp .env.example .env      # fill in values once Dinarak provides them
+cp .env.example .env      # fill in DATABASE_URL (required) + Dinarak values once provided
 npm start
 ```
+
+## Persistent storage (Supabase)
+Orders and push subscriptions are stored in a real Postgres database (see
+`db.js`/`orders.js`/`services/pushNotifier.js`) — **not** in memory. This
+matters because Render's free web service plan spins the server down after
+15 minutes of no traffic, and everything in memory is wiped when it wakes
+back up; without a real database, orders (and who's subscribed to push)
+would randomly appear to "disappear" or silently stop notifying.
+
+**Required**: set `DATABASE_URL` (see `.env.example`) to a Postgres
+connection string. [Supabase](https://supabase.com) gives you one for free,
+forever (no credit card, no time limit — unlike Render's own free Postgres,
+which expires after 30 days):
+
+1. Go to https://supabase.com, sign up (free), and create a new project
+   (pick any name/region; set a database password — save it somewhere, you'll
+   need it in the connection string).
+2. Once the project finishes setting up, go to **Project Settings → Database**
+   (or the "Connect" button on the project dashboard).
+3. Under **Connection string**, choose the **URI** tab and copy it — it looks
+   like `postgresql://postgres.xxxxxxxxxxxx:[YOUR-PASSWORD]@aws-0-region.pooler.supabase.com:6543/postgres`.
+   Replace `[YOUR-PASSWORD]` with the database password from step 1 if it
+   isn't already filled in.
+4. In Render's **Environment** tab (same place `ADMIN_API_KEY` etc. live),
+   add a new variable `DATABASE_URL` and paste that full connection string
+   as its value.
+5. Redeploy (Manual Deploy → Deploy latest commit). On startup, the server
+   automatically creates the two tables it needs (`orders`,
+   `push_subscriptions`) if they don't already exist — no extra step. The
+   startup log should show "Connected to the database..." instead of the
+   "DATABASE_URL is not set" warning.
+
+From then on, orders and push subscriptions survive server restarts,
+redeploys, and Render's free-tier spin-down indefinitely — nothing is lost
+between visits anymore.
 
 ## Dev-only smoke test
 `node test/smoke-test.js` runs the whole order → pay → reconcile → PAID
@@ -148,8 +183,9 @@ One-time setup:
 
 Notes:
 - Each device/browser you enable this on gets its own subscription, stored
-  in memory (wiped on server restart — same tradeoff as orders, re-enabling
-  takes one tap).
+  in the database (see "Persistent storage (Supabase)" above) — it survives
+  server restarts, so you only ever tap "Enable notifications" once per
+  device.
 - On iPhone/iPad, Safari only supports this after you "Add to Home Screen"
   from `admin.html` and open it from that home-screen icon (Safari 16.4+);
   opening it as a normal browser tab won't show push notifications on iOS.
@@ -170,8 +206,8 @@ Notes:
   customer-typed transaction ID.
 
 ## A note on this scaffold's storage
-`orders.js` currently stores orders in memory (a JS Map) so the scaffold
-runs with zero setup. This is wiped on every restart. Before accepting real
-payments, swap it for a real database (Postgres, SQLite, etc.) — the
-function signatures (`createOrder`, `getOrder`, `markOrderPaid`,
-`markOrderFailed`) are designed to stay the same either way.
+`orders.js` and `services/pushNotifier.js` store everything in a real
+Postgres database (see "Persistent storage (Supabase)" above) via `db.js` —
+nothing is kept in memory, so nothing is lost on restart, redeploy, or
+Render's free-tier spin-down. `DATABASE_URL` must be set for the server to
+do anything with orders or push subscriptions at all (see `.env.example`).
