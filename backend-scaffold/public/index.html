@@ -2613,6 +2613,7 @@ function renderCheckoutModal(){
         `).join('')}
         <div class="co-divider"></div>
         <div class="co-line"><span>${d.subtotal}</span><b>${fmtPrice(cartSubtotal())}</b></div>
+        ${cartDiscount()>0 ? `<div class="co-line" style="color:var(--red);"><span>${lang==='ar'?`خصم ${SITE_DISCOUNT_PERCENT}% (بقلاوة وحلقوم)`:`Discount ${SITE_DISCOUNT_PERCENT}% (baklava & delight)`}</span><b>-${fmtPrice(cartDiscount())}</b></div>` : ''}
         <div class="co-line"><span>${d.delivery}</span><b>${cartDelivery()===0?(lang==='ar'?'مجاني':'Free'):fmtPrice(cartDelivery())}</b></div>
         <div class="co-divider"></div>
         <div class="co-line" style="font-size:1rem;"><span>${d.total}</span><b style="color:var(--red);font-family:var(--serif);font-size:1.15rem;">${fmtPrice(cartTotal())}</b></div>
@@ -3412,9 +3413,21 @@ function toggleWish(catId, en, ar, price, weightEn, weightAr){
   });
 }
 
+/* Promotional discount — applies only to cart lines whose category (l.cat)
+   is in DISCOUNT_CATEGORIES (baklava + Turkish delight/"راحة"), but is
+   shown and deducted as ONE line against the order's overall total (not
+   as a per-item price change). To turn it off, set SITE_DISCOUNT_PERCENT
+   to 0 — the discount row/banner simply won't render. To change which
+   categories qualify, edit DISCOUNT_CATEGORIES (category ids are defined
+   in CATEGORIES above — e.g. 'baklava', 'delight'). */
+const SITE_DISCOUNT_PERCENT = 20;
+const DISCOUNT_CATEGORIES = ['baklava','delight'];
 function cartSubtotal(){ return cart.reduce((s,l)=>s+l.price*l.qty,0); }
-function cartDelivery(){ const sub = cartSubtotal(); return sub===0?0:(sub>=40?0:3); }
-function cartTotal(){ return cartSubtotal()+cartDelivery(); }
+function discountEligibleSubtotal(){ return cart.filter(l=>DISCOUNT_CATEGORIES.includes(l.cat)).reduce((s,l)=>s+l.price*l.qty,0); }
+function cartDiscount(){ return SITE_DISCOUNT_PERCENT>0 ? discountEligibleSubtotal()*(SITE_DISCOUNT_PERCENT/100) : 0; }
+function cartSubtotalAfterDiscount(){ return cartSubtotal()-cartDiscount(); }
+function cartDelivery(){ const sub = cartSubtotalAfterDiscount(); return sub===0?0:(sub>=40?0:3); }
+function cartTotal(){ return cartSubtotalAfterDiscount()+cartDelivery(); }
 
 function renderCartDrawer(){
   const d=t();
@@ -3446,6 +3459,7 @@ function renderCartDrawer(){
     ${empty ? '' : `
     <div class="drawer-foot">
       <div class="tot-row"><span>${d.subtotal}</span><span>${fmtPrice(cartSubtotal())}</span></div>
+      ${cartDiscount()>0 ? `<div class="tot-row" style="color:var(--red);"><span>${lang==='ar'?`خصم ${SITE_DISCOUNT_PERCENT}% (بقلاوة وحلقوم)`:`Discount ${SITE_DISCOUNT_PERCENT}% (baklava & delight)`}</span><span>-${fmtPrice(cartDiscount())}</span></div>` : ''}
       <div class="tot-row"><span>${d.delivery}</span><span>${cartDelivery()===0?(lang==='ar'?'مجاني':'Free'):fmtPrice(cartDelivery())}</span></div>
       <div class="tot-row" style="font-size:.72rem;">${d.freeAt} · ${d.deliveryJordanNote}</div>
       <div class="tot-row grand"><span>${d.total}</span><b>${fmtPrice(cartTotal())}</b></div>
@@ -3557,9 +3571,17 @@ function pageContent(){
   }
 }
 
+function renderPromoBanner(){
+  if(SITE_DISCOUNT_PERCENT<=0) return '';
+  const msg = lang==='ar'
+    ? `🎉 خصم ${SITE_DISCOUNT_PERCENT}% على البقلاوة والحلقوم التركي لفترة محدودة`
+    : `🎉 ${SITE_DISCOUNT_PERCENT}% off Baklava & Turkish Delight for a limited time`;
+  return `<div class="promo-banner" style="background:var(--red,#7a1f2b);color:#fff;text-align:center;padding:9px 12px;font-size:.82rem;font-weight:600;letter-spacing:.02em;">${msg}</div>`;
+}
+
 function renderApp(){
   const app = document.getElementById('app');
-  app.innerHTML = renderHeader() + `<main>${pageContent()}</main>` + renderFooter() + renderMobileBar();
+  app.innerHTML = renderPromoBanner() + renderHeader() + `<main>${pageContent()}</main>` + renderFooter() + renderMobileBar();
   renderMobileNav();
   renderCartDrawer();
   if(searchOpen) renderSearchOverlay();
