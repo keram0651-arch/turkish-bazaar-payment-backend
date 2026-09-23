@@ -1,0 +1,1532 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Turkish Bazaar — Admin (Prototype)</title>
+<!-- Makes "Add to Home Screen" on iOS launch this as a standalone app
+     (hides Safari's address bar) instead of a plain bookmark — required for
+     push notifications to work on iOS, see public/push-sw.js. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Turkish Bazaar">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&family=Cairo:wght@300;400;500;600;700&family=Cormorant+Garamond:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --red:#8B1E2F; --red-deep:#4E0F1B; --red-bright:#A8283A;
+  --cream:#FAF6EE; --cream-2:#F1E9DA; --white:#FFFFFF;
+  --ink:#2A211C; --ink-soft:#665A4E; --ink-faint:#8C8175;
+  --gold:#C9A24B; --gold-light:#E4C97A; --gold-dim:#A9843A;
+  --border:#E7DECD;
+  --sans:'Jost','Cairo',sans-serif;
+  --serif:'Cormorant Garamond',serif;
+  --radius:12px; --radius-sm:8px;
+  --shadow:0 8px 24px -10px rgba(42,33,28,.14);
+  --ok:#5C7A34; --ok-bg:#E7EEDC;
+  --warn:#A6641F; --warn-bg:#F6E7CF;
+  --info:#46617A; --info-bg:#E5EAF0;
+  --teal:#3F7A63; --teal-bg:#E3EEE8;
+  --burnt:#A6502B; --burnt-bg:#F3E1D8;
+  --danger:#93433F; --danger-bg:#F1E0DF;
+  --new:#8A6B2E; --new-bg:#F0E5C9;
+}
+*{box-sizing:border-box;}
+body{margin:0;font-family:var(--sans);background:var(--cream);color:var(--ink);-webkit-font-smoothing:antialiased;}
+a{text-decoration:none;color:inherit;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;}
+img{max-width:100%;display:block;}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-thumb{background:var(--gold-dim);border-radius:10px;}
+::-webkit-scrollbar-track{background:var(--cream-2);}
+
+/* ---------- layout shell ---------- */
+.admin-shell{display:flex;min-height:100vh;}
+
+/* ---------- sidebar ---------- */
+.sidebar{width:236px;flex-shrink:0;background:var(--red-deep);color:#F3E7D6;
+  display:flex;flex-direction:column;position:fixed;top:0;bottom:0;inset-inline-start:0;z-index:60;
+  transition:transform .35s cubic-bezier(.16,1,.3,1);}
+.sidebar-brand{display:flex;align-items:center;gap:10px;padding:20px 18px;border-bottom:1px solid rgba(255,255,255,.08);}
+.sidebar-brand .mark{width:34px;height:34px;border-radius:50%;background:var(--gold);color:var(--red-deep);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--serif);font-weight:700;font-size:1.05rem;}
+.sidebar-brand .txt b{display:block;font-family:var(--serif);font-size:1.05rem;color:#fff;line-height:1.15;}
+[dir="rtl"] .sidebar-brand .txt b{font-family:var(--sans);font-weight:700;}
+.sidebar-brand .txt span{display:block;font-size:.64rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-light);margin-top:2px;}
+[dir="rtl"] .sidebar-brand .txt span{letter-spacing:.02em;}
+.sidebar-nav{flex:1;padding:14px 10px;overflow-y:auto;}
+.sidebar-nav a{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:var(--radius-sm);
+  font-size:.86rem;color:#E9DCC8;margin-bottom:3px;transition:background .25s, color .25s;}
+.sidebar-nav a svg{width:17px;height:17px;flex-shrink:0;opacity:.85;}
+.sidebar-nav a:hover{background:rgba(255,255,255,.06);color:#fff;}
+.sidebar-nav a.active{background:var(--gold);color:var(--red-deep);font-weight:600;}
+.sidebar-nav a.active svg{opacity:1;}
+.sidebar-foot{padding:14px 18px;border-top:1px solid rgba(255,255,255,.08);font-size:.68rem;color:rgba(233,220,200,.6);}
+.sidebar-foot b{display:block;color:var(--gold-light);font-size:.72rem;margin-bottom:2px;}
+
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(20,10,10,.5);z-index:55;}
+.sidebar-overlay.open{display:block;}
+
+/* ---------- main area ---------- */
+.main-area{flex:1;margin-inline-start:236px;min-height:100vh;display:flex;flex-direction:column;}
+.topbar{position:sticky;top:0;z-index:40;background:var(--white);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:14px;padding:14px 24px;}
+.topbar .mobile-toggle{display:none;width:34px;height:34px;align-items:center;justify-content:center;border-radius:var(--radius-sm);flex-shrink:0;}
+.topbar .mobile-toggle svg{width:20px;height:20px;color:var(--ink);}
+.topbar h1{font-size:1.05rem;margin:0;font-weight:600;flex:1;min-width:0;}
+.topbar .lang-switch{display:flex;align-items:center;gap:4px;font-size:.74rem;color:var(--ink-soft);flex-shrink:0;background:var(--cream-2);
+  border-radius:20px;padding:4px;}
+.topbar .lang-switch button{padding:5px 11px;border-radius:16px;transition:all .2s;font-weight:500;}
+.topbar .lang-switch button.active{background:var(--red);color:#fff;}
+.topbar .demo-pill{display:flex;align-items:center;gap:6px;background:var(--new-bg);color:var(--new);
+  font-size:.68rem;letter-spacing:.05em;text-transform:uppercase;padding:5px 11px;border-radius:20px;font-weight:600;flex-shrink:0;}
+[dir="rtl"] .topbar .demo-pill{letter-spacing:0;text-transform:none;}
+.topbar .demo-pill svg{width:12px;height:12px;}
+.topbar .admin-avatar{width:34px;height:34px;border-radius:50%;background:var(--cream-2);color:var(--red);
+  display:flex;align-items:center;justify-content:center;font-weight:600;font-size:.8rem;flex-shrink:0;border:1px solid var(--border);}
+
+.content{padding:24px;max-width:1400px;width:100%;margin:0 auto;flex:1;}
+
+@media(max-width:960px){
+  .sidebar{transform:translateX(-100%);}
+  [dir="rtl"] .sidebar{transform:translateX(100%);}
+  .sidebar.open{transform:translateX(0);}
+  .main-area{margin-inline-start:0;}
+  .topbar .mobile-toggle{display:flex;}
+  .content{padding:16px;}
+  .topbar .demo-pill{display:none;}
+}
+@media(max-width:560px){
+  .topbar h1{display:none;}
+}
+
+/* ---------- shared components ---------- */
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px;}
+.page-head h2{font-size:1.5rem;margin:0 0 4px;font-weight:600;}
+.page-head p{margin:0;color:var(--ink-soft);font-size:.86rem;}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:10px 18px;border-radius:var(--radius-sm);
+  font-size:.82rem;font-weight:500;transition:all .25s;white-space:nowrap;}
+.btn svg{width:15px;height:15px;}
+.btn-primary{background:var(--red);color:#fff;}
+.btn-primary:hover{background:var(--red-deep);}
+.btn-outline{background:var(--white);color:var(--ink);border:1px solid var(--border);}
+.btn-outline:hover{border-color:var(--red);color:var(--red);}
+.btn-sm{padding:6px 12px;font-size:.74rem;}
+.btn-ghost{padding:6px 10px;font-size:.76rem;color:var(--ink-soft);border-radius:var(--radius-sm);display:inline-flex;align-items:center;gap:6px;}
+.btn-ghost:hover{background:var(--cream-2);color:var(--ink);}
+.btn-ghost svg{width:13px;height:13px;flex-shrink:0;}
+.btn-danger-ghost{padding:6px 10px;font-size:.76rem;color:var(--danger);border-radius:var(--radius-sm);display:inline-flex;align-items:center;gap:6px;}
+.btn-danger-ghost:hover{background:var(--danger-bg);}
+.btn-danger-ghost svg{width:13px;height:13px;flex-shrink:0;}
+
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);}
+
+/* stat cards */
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:22px;}
+@media(min-width:700px){.stat-grid{grid-template-columns:repeat(3,1fr);}}
+@media(min-width:1100px){.stat-grid{grid-template-columns:repeat(5,1fr);}}
+.stat-card{padding:18px;display:flex;flex-direction:column;gap:8px;}
+.stat-card .stat-top{display:flex;align-items:center;justify-content:space-between;}
+.stat-card .stat-icon{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.stat-card .stat-icon svg{width:16px;height:16px;}
+.stat-card .stat-num{font-family:var(--serif);font-size:1.9rem;font-weight:700;color:var(--ink);line-height:1;}
+.stat-card .stat-label{font-size:.74rem;color:var(--ink-soft);}
+.stat-card .stat-trend{font-size:.68rem;font-weight:600;display:flex;align-items:center;gap:3px;}
+.stat-trend.up{color:var(--ok);}
+.stat-trend.down{color:var(--danger);}
+
+/* two column dashboard layout */
+.dash-grid{display:grid;grid-template-columns:1fr;gap:18px;}
+@media(min-width:1050px){.dash-grid{grid-template-columns:1.5fr 1fr;}}
+
+/* chart */
+.chart-card{padding:20px;}
+.chart-card h3{margin:0 0 4px;font-size:.98rem;}
+.chart-card .sub{font-size:.76rem;color:var(--ink-soft);margin-bottom:18px;}
+.bars{display:flex;align-items:flex-end;gap:10px;height:160px;padding:0 2px;}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end;}
+.bar-col .bar{width:100%;max-width:34px;border-radius:6px 6px 3px 3px;background:linear-gradient(180deg,var(--gold-light),var(--gold-dim));
+  transition:transform .3s ease;position:relative;}
+.bar-col:hover .bar{transform:scaleY(1.03);filter:brightness(1.05);}
+.bar-col .bar-val{font-size:.6rem;color:var(--ink-soft);position:absolute;top:-16px;left:0;right:0;text-align:center;}
+.bar-col .bar-lbl{font-size:.68rem;color:var(--ink-soft);}
+
+/* table */
+.table-wrap{overflow-x:auto;}
+table.admin-table{width:100%;border-collapse:collapse;font-size:.82rem;min-width:640px;}
+table.admin-table th{text-align:start;padding:12px 14px;font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--ink-soft);border-bottom:1px solid var(--border);white-space:nowrap;font-weight:600;}
+table.admin-table td{padding:13px 14px;border-bottom:1px solid var(--cream-2);vertical-align:middle;}
+table.admin-table tr:last-child td{border-bottom:none;}
+table.admin-table tbody tr{transition:background .2s;cursor:pointer;}
+table.admin-table tbody tr:hover{background:var(--cream-2);}
+.cell-strong{font-weight:600;color:var(--ink);}
+.cell-muted{color:var(--ink-soft);font-size:.78rem;}
+
+/* status badge */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:.68rem;font-weight:600;letter-spacing:.02em;white-space:nowrap;}
+.badge::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;}
+.badge.new{background:var(--new-bg);color:var(--new);}
+.badge.confirmed{background:var(--info-bg);color:var(--info);}
+.badge.preparing{background:var(--warn-bg);color:var(--warn);}
+.badge.ready{background:var(--teal-bg);color:var(--teal);}
+.badge.outfordelivery{background:var(--burnt-bg);color:var(--burnt);}
+.badge.completed{background:var(--ok-bg);color:var(--ok);}
+.badge.cancelled{background:var(--danger-bg);color:var(--danger);}
+.badge.instock{background:var(--ok-bg);color:var(--ok);}
+.badge.outofstock{background:var(--danger-bg);color:var(--danger);}
+
+/* filters/search bar */
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.filter-chips{display:flex;gap:6px;flex-wrap:wrap;}
+.filter-chip{padding:7px 14px;border-radius:20px;font-size:.76rem;border:1px solid var(--border);color:var(--ink-soft);transition:all .25s;}
+.filter-chip.active,.filter-chip:hover{background:var(--red);border-color:var(--red);color:#fff;}
+.search-input{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:8px 14px;background:var(--white);min-width:220px;}
+.search-input svg{width:14px;height:14px;color:var(--ink-soft);flex-shrink:0;}
+.search-input input{border:none;outline:none;background:none;font-family:inherit;font-size:.82rem;width:100%;color:var(--ink);}
+
+/* back link */
+.back-link{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;color:var(--ink-soft);margin-bottom:16px;transition:color .25s;}
+.back-link:hover{color:var(--red);}
+.back-link svg{width:14px;height:14px;}
+
+/* order details */
+.od-grid{display:grid;grid-template-columns:1fr;gap:18px;}
+@media(min-width:1000px){.od-grid{grid-template-columns:2fr 1fr;}}
+.od-section{padding:20px;margin-bottom:18px;}
+.od-section h4{margin:0 0 14px;font-size:.9rem;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);}
+.od-cust-row{display:flex;justify-content:space-between;padding:8px 0;font-size:.86rem;border-bottom:1px solid var(--cream-2);}
+.od-cust-row:last-child{border-bottom:none;}
+.od-cust-row .lbl{color:var(--ink-soft);}
+.od-item-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--cream-2);}
+.od-item-row:last-child{border-bottom:none;}
+.od-item-thumb{width:44px;height:44px;border-radius:8px;background:var(--cream-2);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--gold-dim);}
+.od-item-thumb svg{width:18px;height:18px;}
+.od-item-info{flex:1;min-width:0;}
+.od-item-info .nm{font-size:.86rem;font-weight:500;}
+.od-item-info .wt{font-size:.72rem;color:var(--ink-soft);}
+.od-item-qty{font-size:.8rem;color:var(--ink-soft);white-space:nowrap;}
+.od-item-price{font-size:.86rem;font-weight:600;color:var(--red);white-space:nowrap;min-width:60px;text-align:end;}
+.od-totals-row{display:flex;justify-content:space-between;padding:6px 0;font-size:.85rem;}
+.od-totals-row.grand{font-size:1.05rem;font-weight:700;border-top:1px solid var(--border);margin-top:8px;padding-top:12px;color:var(--red);}
+
+/* timeline */
+.timeline{display:flex;overflow-x:auto;gap:0;padding:6px 2px 14px;}
+.tl-step{flex:1;min-width:96px;text-align:center;position:relative;cursor:pointer;}
+.tl-step .tl-dot{width:26px;height:26px;border-radius:50%;background:var(--cream-2);border:2px solid var(--border);
+  display:flex;align-items:center;justify-content:center;margin:0 auto 8px;transition:all .25s;position:relative;z-index:2;}
+.tl-step .tl-dot svg{width:12px;height:12px;color:var(--ink-faint);}
+.tl-step .tl-line{position:absolute;top:13px;inset-inline-start:-50%;width:100%;height:2px;background:var(--border);z-index:1;}
+.tl-step:first-child .tl-line{display:none;}
+.tl-step.done .tl-dot{background:var(--ok);border-color:var(--ok);}
+.tl-step.done .tl-dot svg{color:#fff;}
+.tl-step.done .tl-line{background:var(--ok);}
+.tl-step.current .tl-dot{background:var(--gold);border-color:var(--gold);box-shadow:0 0 0 4px var(--new-bg);}
+.tl-step.current .tl-dot svg{color:var(--red-deep);}
+.tl-step .tl-label{font-size:.68rem;color:var(--ink-soft);}
+.tl-step.done .tl-label,.tl-step.current .tl-label{color:var(--ink);font-weight:600;}
+.tl-cancelled-note{background:var(--danger-bg);color:var(--danger);padding:12px 16px;border-radius:var(--radius-sm);font-size:.82rem;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.tl-cancelled-note svg{width:16px;height:16px;flex-shrink:0;}
+
+/* products / categories grid */
+.admin-product-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
+@media(min-width:640px){.admin-product-grid{grid-template-columns:repeat(3,1fr);}}
+@media(min-width:1000px){.admin-product-grid{grid-template-columns:repeat(4,1fr);}}
+.admin-product-card{padding:14px;position:relative;}
+.ap-badge{position:absolute;top:12px;inset-inline-start:12px;}
+.admin-product-card .thumb{width:100%;aspect-ratio:1/1;border-radius:var(--radius-sm);background:var(--cream-2);
+  display:flex;align-items:center;justify-content:center;color:var(--gold-dim);margin-bottom:10px;}
+.admin-product-card .thumb svg{width:28px;height:28px;}
+.admin-product-card .cat{font-size:.64rem;text-transform:uppercase;letter-spacing:.05em;color:var(--gold-dim);}
+.admin-product-card h4{font-size:.86rem;margin:3px 0 4px;}
+.admin-product-card .meta{display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--ink-soft);margin-bottom:10px;}
+.admin-product-card .price{font-family:var(--serif);color:var(--red);font-weight:700;font-size:1rem;}
+.admin-product-card .row-actions{display:flex;gap:6px;flex-wrap:wrap;}
+
+.cat-list{display:flex;flex-direction:column;gap:10px;}
+.cat-row{display:flex;align-items:center;gap:14px;padding:14px 16px;}
+.cat-row .cat-icon{width:40px;height:40px;border-radius:50%;background:var(--cream-2);display:flex;align-items:center;justify-content:center;color:var(--red);flex-shrink:0;}
+.cat-row .cat-icon svg{width:18px;height:18px;}
+.cat-row .cat-info{flex:1;min-width:0;}
+.cat-row .cat-info h4{margin:0 0 2px;font-size:.9rem;}
+.cat-row .cat-info span{font-size:.76rem;color:var(--ink-soft);}
+.cat-row .row-actions{display:flex;gap:6px;flex-shrink:0;}
+
+/* toggle switch */
+.toggle{position:relative;width:38px;height:22px;border-radius:20px;background:var(--border);flex-shrink:0;transition:background .25s;}
+.toggle.on{background:var(--ok);}
+.toggle .knob{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .25s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+.toggle.on .knob{transform:translateX(16px);}
+
+/* modal (confirm) */
+.modal-overlay{position:fixed;inset:0;background:rgba(20,10,10,.5);z-index:200;opacity:0;pointer-events:none;transition:opacity .3s;}
+.modal-overlay.open{opacity:1;pointer-events:auto;}
+.confirm-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-46%);width:90%;max-width:360px;background:#fff;
+  border-radius:var(--radius);z-index:210;opacity:0;pointer-events:none;transition:opacity .3s, transform .3s;padding:24px;text-align:center;}
+.confirm-modal.open{opacity:1;pointer-events:auto;transform:translate(-50%,-50%);}
+.confirm-modal .ic{width:48px;height:48px;border-radius:50%;background:var(--danger-bg);color:var(--danger);
+  display:flex;align-items:center;justify-content:center;margin:0 auto 14px;}
+.confirm-modal .ic svg{width:22px;height:22px;}
+.confirm-modal h4{margin:0 0 8px;font-size:1rem;}
+.confirm-modal p{margin:0 0 20px;font-size:.84rem;color:var(--ink-soft);}
+.confirm-modal .row{display:flex;gap:10px;}
+.confirm-modal .row .btn{flex:1;justify-content:center;}
+
+/* toast */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);z-index:300;
+  background:var(--ink);color:#fff;padding:12px 22px;border-radius:30px;font-size:.82rem;
+  opacity:0;pointer-events:none;transition:all .35s;display:flex;align-items:center;gap:8px;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+#toast svg{width:15px;height:15px;color:var(--gold-light);}
+
+/* customers page extras */
+.cust-name-cell{display:flex;align-items:center;gap:10px;}
+.cust-avatar{width:32px;height:32px;border-radius:50%;background:var(--cream-2);color:var(--red);display:flex;
+  align-items:center;justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0;}
+
+/* settings */
+.settings-grid{display:grid;grid-template-columns:1fr;gap:16px;}
+@media(min-width:800px){.settings-grid{grid-template-columns:1fr 1fr;}}
+.settings-card{padding:20px;}
+.settings-card h4{margin:0 0 14px;font-size:.92rem;}
+.settings-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--cream-2);font-size:.84rem;}
+.settings-row:last-child{border-bottom:none;}
+
+.empty-note{text-align:center;padding:50px 20px;color:var(--ink-soft);font-size:.86rem;}
+</style>
+</head>
+<body>
+
+<div class="admin-shell">
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-area">
+    <div class="topbar" id="topbar"></div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay"></div>
+<div class="confirm-modal" id="confirmModal"></div>
+<div id="toast"></div>
+
+<script>
+/* ============================= ICONS ============================= */
+const I = {
+  logo:'TB',
+  dashboard:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/></svg>`,
+  orders:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 12h16M4 17h10"/></svg>`,
+  products:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 8l9-5 9 5-9 5-9-5Zm0 0v9l9 5m0-14v14m9-14v9l-9 5"/></svg>`,
+  categories:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>`,
+  customers:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c1.2-3.5 3.5-5.5 6-5.5s4.8 2 6 5.5"/><circle cx="17.5" cy="7.5" r="2.4"/><path d="M15.5 14.2c2 .2 3.7 2 4.6 4.3"/></svg>`,
+  sales:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 17l5-5 4 4 8-9"/><path d="M14 7h6v6"/></svg>`,
+  settings:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>`,
+  menu:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>`,
+  close:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>`,
+  search:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3" stroke-linecap="round"/></svg>`,
+  back:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>`,
+  bag:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 8h12l-1 12.5a1 1 0 0 1-1 .9H8a1 1 0 0 1-1-.9L6 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>`,
+  new:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>`,
+  prep:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>`,
+  done:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 6L9 17l-5-5"/></svg>`,
+  money:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M9.5 15.2c.4.9 1.3 1.3 2.5 1.3 1.6 0 2.6-.8 2.6-1.9 0-1.2-1-1.6-2.6-2-1.6-.4-2.6-.9-2.6-2 0-1.1 1-1.9 2.6-1.9 1.2 0 2.1.4 2.5 1.3"/><path d="M12 6.5v11"/></svg>`,
+  plus:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>`,
+  edit:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`,
+  trash:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>`,
+  eye:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`,
+  eyeOff:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 3l18 18M10.6 10.6a3 3 0 0 0 4.2 4.2M9.4 5.5A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a13.3 13.3 0 0 1-3 3.7M6.1 6.6C3.9 8.2 2 12 2 12s3.5 7 10 7c1.2 0 2.3-.2 3.3-.6"/></svg>`,
+  pin:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 21s7-7.2 7-12a7 7 0 1 0-14 0c0 4.8 7 12 7 12Z"/><circle cx="12" cy="9" r="2.4"/></svg>`,
+  phone:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 5c0 8.3 6.7 15 15 15l3-4-6-3-2 2c-2.5-1.2-4.8-3.5-6-6l2-2-3-6Z"/></svg>`,
+  warn:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 9v4M12 17h.01M10.3 3.9 2.3 18a1.5 1.5 0 0 0 1.3 2.2h16.8a1.5 1.5 0 0 0 1.3-2.2l-8-14.1a1.5 1.5 0 0 0-2.6 0Z"/></svg>`,
+  star:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.7 1.5 6.8L12 17.1 5.9 20.5l1.5-6.8L2.2 9l6.9-.7L12 2Z"/></svg>`,
+  chart:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 20V10M11 20V4M18 20v-7"/></svg>`,
+};
+
+/* ============================= TRANSLATIONS ============================= */
+const T = {
+  en:{
+    dir:'ltr',
+    navDashboard:'Dashboard', navOrders:'Orders', navProducts:'Products', navCategories:'Categories',
+    navCustomers:'Customers', navSales:'Sales', navSettings:'Settings',
+    brandSub:'Admin Panel', prototypeMode:'Live', prototypeNote:'Connected — orders update automatically.',
+    demoPill:'Live Orders',
+    catalogNote:'Catalog reference — editing here does not change the live site',
+    titleDashboard:'Dashboard', titleOrders:'Orders', titleOrderDetail:'Order Details', titleProducts:'Products',
+    titleCategories:'Categories', titleCustomers:'Customers', titleSales:'Sales Overview', titleSettings:'Settings',
+    welcome:'Welcome back 👋', welcomeSub:"Here's what's happening with Turkish Bazaar today.",
+    viewAllOrders:'View All Orders', viewAll:'View All →',
+    statTotalOrders:'Total Orders', statNewOrders:'New Orders', statPreparing:'In Preparation',
+    statCompleted:'Completed', statTotalSales:'Total Sales',
+    trendUp:'vs last week', trendAttention:'Needs attention', trendTrack:'On track',
+    chartTitle:'Sales — Last 7 Days', chartSub:'Computed from your real orders',
+    bestSellers:'Best-Selling Products', bestSellersSub:'Units sold across all orders', sold:'sold',
+    recentOrders:'Recent Orders',
+    colOrder:'Order', colCustomer:'Customer', colPhone:'Phone', colDate:'Date', colTotal:'Total',
+    colPayment:'Payment', colStatus:'Status', colWeight:'Weight', colCategory:'Category',
+    ordersTotal:'total orders', searchOrdersPh:'Search order #, name, phone...',
+    filterAll:'All', filterNew:'New', filterPreparing:'Preparing', filterCompleted:'Completed', filterCancelled:'Cancelled',
+    noOrdersMatch:'No orders match this filter.', noOrdersYet:"No orders yet — once a customer checks out on the website, it'll show up here.",
+    backToOrders:'Back to Orders', placedOn:'Placed on',
+    orderStatusHead:'Order Status', cancelledNote:'This order was cancelled and is no longer in the fulfillment flow.',
+    advanceTo:'Advance to', cancelOrder:'Cancel Order',
+    orderItemsHead:'Order Items', subtotal:'Subtotal', delivery:'Delivery', total:'Total', free:'Free',
+    customerHead:'Customer', name:'Name', phone:'Phone', payment:'Payment', address:'Address', notes:'Notes',
+    cancelOrderTitle:'Cancel this order?', cancelOrderText:'This will mark order {no} as cancelled.',
+    cancel:'Cancel', confirm:'Confirm',
+    productsSub:'catalog products across', categoriesWord:'categories',
+    addProduct:'Add Product', addProductToast:'Product editing isn\'t connected yet — this list mirrors the website\'s catalog.',
+    inStock:'In Stock', outOfStock:'Out of Stock', edit:'Edit', hide:'Hide', show:'Show',
+    editToast:'Product editing isn\'t connected yet.',
+    stockToast:'Product editing isn\'t connected yet.',
+    deleteConfirmTitle:'Delete this product?', deleteConfirmText:'Product editing isn\'t connected yet — "{name}" can only be removed by editing the website file directly.',
+    delete:'Delete', deleteToast:'Product editing isn\'t connected yet.',
+    categoriesSub:'main categories', addCategory:'Add Category', addCategoryToast:'Category editing isn\'t connected yet.',
+    productsWord:'products', catEditToast:'Category editing isn\'t connected yet.',
+    categoryVisToast:'Category editing isn\'t connected yet.',
+    customersSub:'customers, from real orders', colOrders:'Orders', colSpent:'Total Spent', colLast:'Last Order',
+    customerRowToast:'Customer profile view coming in the full version',
+    salesSub:'Computed from your real orders', todaySales:"Today's Sales", weekSales:'This Week', monthSales:'This Month (est.)',
+    weeklyTrend:'Weekly Sales Trend', weeklyTrendSub:'Last 7 days, from real orders',
+    settingsSub:'Store configuration',
+    storeInfo:'Store Information', storeName:'Store Name', phones:'Phone Numbers', branches:'Branches', branchesVal:'4 active',
+    deliveryCoverage:'Delivery Coverage', deliveryCoverageVal:'All of Jordan',
+    orderPrefs:'Order Preferences', freeThreshold:'Free delivery threshold', standardFee:'Standard delivery fee',
+    whatsappOrdering:'WhatsApp ordering', enabled:'Enabled', websiteCheckout:'Website checkout (Cash on Delivery)', prototype:'Live',
+    adminUsers:'Admin Users', owner:'Owner', inviteMember:'+ Invite team member', invite:'Invite',
+    inviteToast:'Multi-admin accounts coming in a future version',
+    dangerZone:'Data', exportData:'Export all orders as CSV', exportBtn:'Export',
+    piece:'pc', setOf:'Set of',
+    statusOrderToast:'Order {no} marked as "{status}"', statusOrderError:'Could not update the order — please check your connection and try again.',
+    connectTitle:'Connect to your store', connectText:'Enter the admin key you set on the backend (Render → Environment → ADMIN_API_KEY) to load your real orders.',
+    connectKeyLabel:'Admin key', connectBtn:'Connect', connectWrongKey:'That key was rejected by the server. Double-check ADMIN_API_KEY on Render and try again.',
+    connectHelp:'Don\'t have one yet? See backend-scaffold/README.md "Admin panel" for setup steps.',
+    adminKeySettings:'Admin Key', adminKeyConnected:'Connected', adminKeyChange:'Change key', adminKeyDisconnect:'Disconnect',
+    loadingOrders:'Loading orders…', connectionError:'Couldn\'t reach the backend. Check your internet connection and try again.', retry:'Retry',
+    notifSettings:'Order Notifications', notifDesc:'Get a real notification on this device the instant a new order arrives — tap it to jump straight to the order.',
+    notifOn:'Enabled on this device', notifOff:'Not enabled', notifEnableBtn:'Enable notifications', notifDisableBtn:'Turn off',
+    notifUnsupported:'This browser doesn\'t support push notifications.', notifInsecure:'Open this page via the https:// link (not the downloaded file) to enable notifications.',
+    notifDenied:'Notifications are blocked for this site — allow them from your browser\'s site settings, then try again.', notifBusy:'Working…',
+    pushEnabledToast:'Notifications enabled', pushFailedToast:'Could not enable notifications', pushSetupNeeded:'Push isn\'t configured on the server yet (missing VAPID keys)',
+    shopWaSettings:'Shop WhatsApp Number', shopWaDesc:'The number that should receive full order details via WhatsApp — usually the phone at the shop itself.',
+    shopWaLabel:'Shop WhatsApp number (e.g. 962790101517)', shopWaSaveBtn:'Save', shopWaSavedToast:'Shop WhatsApp number saved',
+    shopWaConnected:'Set', shopWaChange:'Change number',
+    forwardToShopBtn:'Send order to shop via WhatsApp',
+    shopWaMsgTitle:'New order', shopWaMsgName:'Name', shopWaMsgPhone:'Phone', shopWaMsgAddress:'Address',
+    shopWaMsgItems:'Items', shopWaMsgTotal:'Total', shopWaMsgPayment:'Payment', shopWaMsgNotes:'Notes',
+  },
+  ar:{
+    dir:'rtl',
+    navDashboard:'الرئيسية', navOrders:'الطلبات', navProducts:'المنتجات', navCategories:'الفئات',
+    navCustomers:'الزبائن', navSales:'المبيعات', navSettings:'الإعدادات',
+    brandSub:'لوحة التحكم', prototypeMode:'مباشر', prototypeNote:'متصلة — الطلبات تتحدث تلقائيًا.',
+    demoPill:'طلبات حقيقية',
+    catalogNote:'مرجع الكتالوج — التعديل هون ما بيغيّر الموقع الفعلي',
+    titleDashboard:'الرئيسية', titleOrders:'الطلبات', titleOrderDetail:'تفاصيل الطلب', titleProducts:'المنتجات',
+    titleCategories:'الفئات', titleCustomers:'الزبائن', titleSales:'نظرة عامة على المبيعات', titleSettings:'الإعدادات',
+    welcome:'أهلاً بعودتك 👋', welcomeSub:'هذا ما يحدث في القرية التركية اليوم.',
+    viewAllOrders:'عرض جميع الطلبات', viewAll:'عرض الكل ←',
+    statTotalOrders:'إجمالي الطلبات', statNewOrders:'طلبات جديدة', statPreparing:'قيد التحضير',
+    statCompleted:'مكتملة', statTotalSales:'إجمالي المبيعات',
+    trendUp:'مقارنة بالأسبوع الماضي', trendAttention:'بحاجة لمتابعة', trendTrack:'ضمن الخطة',
+    chartTitle:'المبيعات — آخر 7 أيام', chartSub:'محسوبة من طلباتك الحقيقية',
+    bestSellers:'الأكثر مبيعًا', bestSellersSub:'القطع المباعة ضمن كل الطلبات', sold:'مباع',
+    recentOrders:'أحدث الطلبات',
+    colOrder:'الطلب', colCustomer:'الزبون', colPhone:'الهاتف', colDate:'التاريخ', colTotal:'الإجمالي',
+    colPayment:'الدفع', colStatus:'الحالة', colWeight:'الوزن', colCategory:'الفئة',
+    ordersTotal:'طلب إجمالًا', searchOrdersPh:'ابحث برقم الطلب، الاسم، الهاتف...',
+    filterAll:'الكل', filterNew:'جديد', filterPreparing:'قيد التحضير', filterCompleted:'مكتمل', filterCancelled:'ملغي',
+    noOrdersMatch:'لا توجد طلبات مطابقة لهذا الفلتر.', noOrdersYet:'لا توجد طلبات بعد — أول ما يطلب زبون من الموقع، رح يطلع هون.',
+    backToOrders:'العودة إلى الطلبات', placedOn:'تاريخ الطلب',
+    orderStatusHead:'حالة الطلب', cancelledNote:'تم إلغاء هذا الطلب ولم يعد ضمن مسار التنفيذ.',
+    advanceTo:'الانتقال إلى', cancelOrder:'إلغاء الطلب',
+    orderItemsHead:'منتجات الطلب', subtotal:'المجموع الفرعي', delivery:'التوصيل', total:'الإجمالي', free:'مجاني',
+    customerHead:'الزبون', name:'الاسم', phone:'الهاتف', payment:'طريقة الدفع', address:'العنوان', notes:'ملاحظات',
+    cancelOrderTitle:'إلغاء هذا الطلب؟', cancelOrderText:'سيتم تعليم الطلب {no} كملغي.',
+    cancel:'تراجع', confirm:'تأكيد',
+    productsSub:'منتج (نسخة من كتالوج الموقع) ضمن', categoriesWord:'فئات',
+    addProduct:'إضافة منتج', addProductToast:'تعديل المنتجات مش مربوط بعد — هاي القائمة نسخة عن كتالوج الموقع.',
+    inStock:'متوفر', outOfStock:'غير متوفر', edit:'تعديل', hide:'إخفاء', show:'إظهار',
+    editToast:'تعديل المنتجات مش مربوط بعد.',
+    stockToast:'تعديل المنتجات مش مربوط بعد.',
+    deleteConfirmTitle:'حذف هذا المنتج؟', deleteConfirmText:'تعديل المنتجات مش مربوط بعد — لحذف "{name}" لازم تعديل ملف الموقع مباشرة.',
+    delete:'حذف', deleteToast:'تعديل المنتجات مش مربوط بعد.',
+    categoriesSub:'فئة رئيسية', addCategory:'إضافة فئة', addCategoryToast:'تعديل الفئات مش مربوط بعد.',
+    productsWord:'منتج', catEditToast:'تعديل الفئات مش مربوط بعد.',
+    categoryVisToast:'تعديل الفئات مش مربوط بعد.',
+    customersSub:'زبون، من الطلبات الحقيقية', colOrders:'الطلبات', colSpent:'إجمالي الإنفاق', colLast:'آخر طلب',
+    customerRowToast:'صفحة ملف الزبون قادمة في النسخة الكاملة',
+    salesSub:'محسوبة من طلباتك الحقيقية', todaySales:'مبيعات اليوم', weekSales:'هذا الأسبوع', monthSales:'هذا الشهر (تقديري)',
+    weeklyTrend:'اتجاه المبيعات الأسبوعي', weeklyTrendSub:'آخر 7 أيام، من طلبات حقيقية',
+    settingsSub:'إعدادات المتجر',
+    storeInfo:'معلومات المتجر', storeName:'اسم المتجر', phones:'أرقام الهاتف', branches:'الفروع', branchesVal:'4 فروع نشطة',
+    deliveryCoverage:'نطاق التوصيل', deliveryCoverageVal:'جميع أنحاء الأردن',
+    orderPrefs:'إعدادات الطلبات', freeThreshold:'حد التوصيل المجاني', standardFee:'رسوم التوصيل الأساسية',
+    whatsappOrdering:'الطلب عبر واتساب', enabled:'مفعّل', websiteCheckout:'الطلب من الموقع (دفع عند الاستلام)', prototype:'مباشر',
+    adminUsers:'مستخدمو الإدارة', owner:'مالك', inviteMember:'+ دعوة عضو فريق', invite:'دعوة',
+    inviteToast:'دعم أكثر من حساب إدارة قادم بنسخة لاحقة',
+    dangerZone:'البيانات', exportData:'تصدير كل الطلبات كملف CSV', exportBtn:'تصدير',
+    piece:'قطعة', setOf:'طقم',
+    statusOrderToast:'تم تحديث الطلب {no} إلى حالة "{status}"', statusOrderError:'تعذر تحديث الطلب — تأكدي من الاتصال وحاولي مرة ثانية.',
+    connectTitle:'اتصلي بمتجرك', connectText:'أدخلي مفتاح الإدارة يلي حطيتيه بالباك إند (Render ← Environment ← ADMIN_API_KEY) لتحميل طلباتك الحقيقية.',
+    connectKeyLabel:'مفتاح الإدارة', connectBtn:'اتصال', connectWrongKey:'السيرفر رفض هاد المفتاح. تأكدي من ADMIN_API_KEY على Render وحاولي مرة ثانية.',
+    connectHelp:'ما عندك مفتاح بعد؟ شوفي backend-scaffold/README.md قسم "Admin panel" لخطوات الإعداد.',
+    adminKeySettings:'مفتاح الإدارة', adminKeyConnected:'متصلة', adminKeyChange:'تغيير المفتاح', adminKeyDisconnect:'قطع الاتصال',
+    loadingOrders:'جارٍ تحميل الطلبات…', connectionError:'ما قدرنا نوصل للباك إند. تأكدي من الإنترنت وحاولي مرة ثانية.', retry:'إعادة المحاولة',
+    notifSettings:'إشعارات الطلبات', notifDesc:'وصلك إشعار حقيقي على هالجهاز فور ما يوصل طلب جديد — دوسي عليه ليوديكي على الطلب مباشرة.',
+    notifOn:'مفعّلة على هالجهاز', notifOff:'مو مفعّلة', notifEnableBtn:'تفعيل الإشعارات', notifDisableBtn:'إيقاف',
+    notifUnsupported:'هالمتصفح ما بيدعم الإشعارات الفورية.', notifInsecure:'افتحي الصفحة من رابط https:// (مو الملف المحمّل) لتقدري تفعّلي الإشعارات.',
+    notifDenied:'الإشعارات محظورة لهالموقع — فعّليها من إعدادات المتصفح لهالموقع وحاولي مرة ثانية.', notifBusy:'جارٍ التفعيل…',
+    pushEnabledToast:'تم تفعيل الإشعارات', pushFailedToast:'تعذر تفعيل الإشعارات', pushSetupNeeded:'الإشعارات مش مفعّلة على السيرفر بعد (ناقص مفاتيح VAPID)',
+    shopWaSettings:'رقم واتساب المحل', shopWaDesc:'الرقم يلي بدك تفاصيل الطلب الكاملة توصله عبر واتساب — عادةً تلفون المحل نفسه.',
+    shopWaLabel:'رقم واتساب المحل (مثلاً 962790101517)', shopWaSaveBtn:'حفظ', shopWaSavedToast:'تم حفظ رقم واتساب المحل',
+    shopWaConnected:'محفوظ', shopWaChange:'تغيير الرقم',
+    forwardToShopBtn:'إرسال الطلب للمحل عبر واتساب',
+    shopWaMsgTitle:'طلب جديد', shopWaMsgName:'الاسم', shopWaMsgPhone:'الهاتف', shopWaMsgAddress:'العنوان',
+    shopWaMsgItems:'الأصناف', shopWaMsgTotal:'المجموع', shopWaMsgPayment:'طريقة الدفع', shopWaMsgNotes:'ملاحظات',
+  },
+};
+
+function t(){ return T[lang]; }
+function tpl(s, vars){ return s.replace(/\{(\w+)\}/g, (_,k)=> vars[k] ?? ''); }
+
+/* =============================================================================
+   SITE CATALOG REFERENCE — NOT live/editable data.
+   The storefront (TurkishBazaarFinalPremium.html) is a single static HTML
+   file with its own hard-coded product list; there is no product database
+   or API yet. This list is a manually-kept-in-sync copy so the Products/
+   Categories pages have something real to display — editing it here does
+   NOT change the live site. Only Orders (below) are real/live, read from
+   the backend.
+   ============================================================================= */
+const CATS = [
+  {id:'baklava', en:'Baklava', ar:'البقلاوة'},
+  {id:'delight', en:'Turkish Delight', ar:'الراحة التركية'},
+  {id:'chocolate', en:'Chocolate', ar:'الشوكولاتة'},
+  {id:'tea', en:'Turkish Tea', ar:'الشاي التركي'},
+  {id:'coffee', en:'Turkish Coffee', ar:'القهوة التركية'},
+  {id:'spices', en:'Spices', ar:'البهارات'},
+  {id:'traditional', en:'Traditional Products', ar:'المنتجات التقليدية'},
+];
+function catName(catId){ const c = CATS.find(x=>x.id===catId); return c ? (lang==='ar'?c.ar:c.en) : catId; }
+
+const DEMO_PRODUCTS = [
+  {id:'sultan', en:"Sultan's Selection", ar:'تشكيلة السلطان', cat:'baklava', weightEn:'1 KG', weightAr:'1 كغم', price:14, stock:true, badgeEn:'Best Seller', badgeAr:'الأكثر مبيعًا'},
+  {id:'palace', en:'Palace Reserve', ar:'تشكيلة القصر', cat:'baklava', weightEn:'0.5 KG', weightAr:'0.5 كغم', price:9.5, stock:true, badgeEn:'Featured', badgeAr:'مميز'},
+  {id:'rose', en:'Rose Delight', ar:'حلقوم الورد', cat:'delight', weightEn:'500g', weightAr:'500غ', price:5.5, stock:true, badgeEn:'New', badgeAr:'جديد'},
+  {id:'pistachio', en:'Pistachio Delight', ar:'حلقوم الفستق', cat:'delight', weightEn:'500g', weightAr:'500غ', price:7, stock:false},
+  {id:'choc', en:'Dark Chocolate Dragée', ar:'دراجيه الشوكولاتة الداكنة', cat:'chocolate', weightEn:'200g', weightAr:'200غ', price:7, stock:true},
+  {id:'giftbox', en:'Turkish Chocolate Gift Box', ar:'علبة هدايا شوكولاتة تركية', cat:'chocolate', weightEn:'300g', weightAr:'300غ', price:12, stock:true},
+  {id:'tea', en:'Rize Black Tea', ar:'شاي رايزة الأسود', cat:'tea', weightEn:'500g', weightAr:'500غ', price:6, stock:true},
+  {id:'teatin', en:'Turkish Tea Gift Tin', ar:'علبة هدايا شاي تركي', cat:'tea', weightEn:'400g', weightAr:'400غ', price:9, stock:false},
+  {id:'coffee', en:'Turkish Coffee', ar:'قهوة تركية', cat:'coffee', weightEn:'250g', weightAr:'250غ', price:5, stock:true},
+  {id:'cezve', en:'Copper Cezve Pot', ar:'ركوة قهوة نحاسية', cat:'coffee', weightEn:'1 pc', weightAr:'قطعة واحدة', price:16, stock:true},
+  {id:'sumac', en:'Sumac', ar:'سماق', cat:'spices', weightEn:'100g', weightAr:'100غ', price:2.5, stock:true},
+  {id:'saffron', en:'Saffron Threads', ar:'خيوط الزعفران', cat:'spices', weightEn:'5g', weightAr:'5غ', price:15, stock:true},
+  {id:'almond', en:'Sugar-Coated Almond Dragée', ar:'دراجيه اللوز المسكر', cat:'traditional', weightEn:'250g', weightAr:'250غ', price:6.5, stock:true},
+  {id:'tray', en:'Copper Serving Tray', ar:'صينية تقديم نحاسية', cat:'traditional', weightEn:'1 pc', weightAr:'قطعة واحدة', price:22, stock:false},
+];
+
+const DEMO_CATEGORIES = CATS.map((c,i)=>({ id:'cat'+i, catId:c.id, count: DEMO_PRODUCTS.filter(p=>p.cat===c.id).length, visible:true }));
+
+const STATUS_FLOW = ['new','confirmed','preparing','ready','outfordelivery','completed'];
+const STATUS_LABEL = {
+  en:{new:'New', confirmed:'Confirmed', preparing:'Preparing', ready:'Ready for Delivery',
+    outfordelivery:'Out for Delivery', completed:'Completed', cancelled:'Cancelled'},
+  ar:{new:'جديد', confirmed:'تم التأكيد', preparing:'قيد التحضير', ready:'جاهز للتوصيل',
+    outfordelivery:'خرج للتوصيل', completed:'مكتمل', cancelled:'ملغي'},
+};
+function statusLabel(s){ return STATUS_LABEL[lang][s] || s; }
+
+/* =============================================================================
+   REAL ORDERS — fetched from the backend (see API SECTION below). ORDERS is
+   null until the first successful fetch; each entry is mapped by mapOrder()
+   into the same shape the render functions below expect (kept close to the
+   old demo shape on purpose, to keep those functions mostly unchanged).
+   ============================================================================= */
+let ORDERS = null; // null = not loaded yet
+
+function paymentLabel(method){
+  if(method === 'whatsapp') return {en:'Ordered via WhatsApp', ar:'طلب عبر واتساب'};
+  // Cash on Delivery is the only other payment method live today; kept as a
+  // function so a future method (e.g. Dinarak) is a one-line addition, not a
+  // render-code change.
+  return {en:'Cash on Delivery', ar:'الدفع عند الاستلام'};
+}
+function formatOrderDate(iso){
+  try{
+    const dt = new Date(iso);
+    const pad = n=>String(n).padStart(2,'0');
+    return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+  }catch(e){ return iso||''; }
+}
+function mapOrder(o){
+  const pay = paymentLabel(o.paymentMethod);
+  const items = (o.items||[]).map(it=>({
+    en: it.nameEn||it.nameAr||'', ar: it.nameAr||it.nameEn||'',
+    weightEn: it.weight||'', weightAr: it.weightAr||it.weight||'',
+    qty: it.qty||1, price: it.price||0,
+  }));
+  const subtotal = items.reduce((s,i)=>s+i.price*i.qty,0);
+  const total = typeof o.amount==='number' ? o.amount : subtotal;
+  const delivery = Math.max(0, Math.round((total-subtotal)*100)/100);
+  const custName = (o.customer && o.customer.name) || '';
+  return {
+    no: o.orderId,
+    custEn: custName, custAr: custName, // real names aren't bilingual — same string both ways
+    phone: (o.customer && o.customer.phone) || '',
+    addrEn: (o.customer && o.customer.address) || '', addrAr: (o.customer && o.customer.address) || '',
+    notes: (o.customer && o.customer.notes) || '',
+    date: formatOrderDate(o.createdAt),
+    createdAt: o.createdAt,
+    paymentEn: pay.en, paymentAr: pay.ar,
+    status: o.fulfillmentStatus || 'new',
+    items, subtotal, delivery, total,
+  };
+}
+
+/* Dashboard/Sales figures computed from real orders — no invented numbers. */
+function ordersInRange(list, start, end){
+  return (list||[]).filter(o=>{ const t=new Date(o.createdAt); return t>=start && t<end; });
+}
+function pctChange(curr, prev){ if(!prev) return null; return Math.round(((curr-prev)/prev)*100); }
+function computeWeekSales(list){
+  const dayLabels = [{en:'Sun',ar:'أحد'},{en:'Mon',ar:'إثنين'},{en:'Tue',ar:'ثلاثاء'},{en:'Wed',ar:'أربعاء'},{en:'Thu',ar:'خميس'},{en:'Fri',ar:'جمعة'},{en:'Sat',ar:'سبت'}];
+  const now = new Date();
+  const days = [];
+  for(let i=6;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i); d.setHours(0,0,0,0); days.push(d); }
+  return days.map(dayStart=>{
+    const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate()+1);
+    const v = ordersInRange(list, dayStart, dayEnd).filter(o=>o.status!=='cancelled').reduce((s,o)=>s+o.total,0);
+    const lbl = dayLabels[dayStart.getDay()];
+    return {en:lbl.en, ar:lbl.ar, v: Math.round(v*100)/100};
+  });
+}
+function computeBestSellers(list){
+  const counts = {};
+  (list||[]).forEach(o=>{
+    if(o.status==='cancelled') return;
+    o.items.forEach(it=>{
+      const key = it.en || it.ar || 'item';
+      if(!counts[key]) counts[key] = {en: it.en||key, ar: it.ar||key, units:0};
+      counts[key].units += (it.qty||1);
+    });
+  });
+  return Object.values(counts).sort((a,b)=>b.units-a.units).slice(0,5);
+}
+function deriveCustomers(list){
+  const byPhone = {};
+  (list||[]).forEach(o=>{
+    const key = o.phone || o.custEn;
+    if(!key) return;
+    if(!byPhone[key]) byPhone[key] = {en:o.custEn, ar:o.custAr, phone:o.phone, orders:0, spent:0, last:o.date, lastRaw:o.createdAt};
+    const c = byPhone[key];
+    c.orders += 1;
+    if(o.status!=='cancelled') c.spent += o.total;
+    if(new Date(o.createdAt) > new Date(c.lastRaw)){ c.last = o.date; c.lastRaw = o.createdAt; c.en=o.custEn; c.ar=o.custAr; }
+  });
+  return Object.values(byPhone).sort((a,b)=> new Date(b.lastRaw)-new Date(a.lastRaw));
+}
+
+/* ============================= STATE ============================= */
+let lang = 'en';
+let route = {name:'dashboard', param:null};
+let sidebarOpen = false;
+let orderFilter = 'all';
+let orderSearch = '';
+let confirmAction = null;
+let productStock = {};
+let categoryVisible = {};
+let ordersError = null; // null | 'unauthorized' | 'network'
+let ordersLoading = false;
+
+/* =============================================================================
+   BACKEND CONNECTION — same backend the storefront's Dinarak/COD checkout
+   posts orders to. GET/PATCH on orders require the admin key (set as
+   ADMIN_API_KEY in Render's env — see backend-scaffold/README.md), entered
+   once below and kept in this browser's localStorage only.
+   ============================================================================= */
+// When this file is opened over HTTPS from the backend itself (which is
+// what makes push notifications possible at all — see the push section
+// below), use the same origin so it keeps working under any domain.
+// A downloaded local copy (file://) has no usable origin, so it falls back
+// to the known Render URL, same as before.
+const API_BASE = (location.protocol !== 'file:' && location.origin !== 'null')
+  ? location.origin
+  : 'https://turkish-bazaar-payment-backend.onrender.com';
+
+function getAdminKey(){
+  try{ return localStorage.getItem('tb_admin_key') || ''; }catch(e){ return ''; }
+}
+function setAdminKeyValue(k){
+  try{ localStorage.setItem('tb_admin_key', k); }catch(e){}
+}
+function clearAdminKey(){
+  try{ localStorage.removeItem('tb_admin_key'); }catch(e){}
+}
+
+/* Shop's own WhatsApp number — where "Send order to shop via WhatsApp"
+   forwards the full order details. Separate from the customer's number
+   (used elsewhere to contact the customer directly). Kept in this
+   browser's localStorage only, same pattern as the admin key. */
+function getShopWhatsapp(){
+  try{ return localStorage.getItem('tb_shop_whatsapp') || ''; }catch(e){ return ''; }
+}
+function setShopWhatsappValue(v){
+  try{ localStorage.setItem('tb_shop_whatsapp', v); }catch(e){}
+}
+
+async function fetchOrders(){
+  const key = getAdminKey();
+  if(!key) return;
+  ordersLoading = true;
+  try{
+    const res = await fetch(`${API_BASE}/api/orders`, { headers:{ 'X-Admin-Key': key } });
+    if(res.status===401){ ordersError='unauthorized'; ordersLoading=false; renderApp(); return; }
+    if(!res.ok){ ordersError='network'; ordersLoading=false; renderApp(); return; }
+    const data = await res.json();
+    ORDERS = (data.orders||[]).map(mapOrder);
+    ordersError = null;
+    ordersLoading = false;
+    renderApp();
+  }catch(e){
+    ordersError = 'network';
+    ordersLoading = false;
+    renderApp();
+  }
+}
+
+async function patchFulfillment(orderId, status){
+  const res = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(orderId)}/fulfillment`, {
+    method:'PATCH',
+    headers:{ 'Content-Type':'application/json', 'X-Admin-Key': getAdminKey() },
+    body: JSON.stringify({ status }),
+  });
+  if(!res.ok) throw new Error('patch_failed');
+  return res.json();
+}
+
+function submitAdminKey(){
+  const el = document.getElementById('adminKeyInput');
+  const val = el ? el.value.trim() : '';
+  if(!val) return;
+  setAdminKeyValue(val);
+  ordersError = null;
+  ORDERS = null;
+  renderApp();
+  fetchOrders();
+}
+function disconnectAdmin(){
+  clearAdminKey();
+  ORDERS = null;
+  ordersError = null;
+  go('dashboard');
+}
+
+function saveShopWhatsapp(){
+  const d = t();
+  const input = document.getElementById('shopWaInput');
+  if(!input) return;
+  setShopWhatsappValue(input.value.trim());
+  showToast(d.shopWaSavedToast);
+  renderApp();
+}
+
+/* =============================================================================
+   PUSH NOTIFICATIONS — a real system notification the moment a new order
+   arrives, generated by this admin panel itself (not WhatsApp, not email).
+   Tapping it opens this panel straight to that order. See
+   backend-scaffold/services/pushNotifier.js and public/push-sw.js.
+
+   Requires this page to be opened over HTTPS from the backend itself
+   (https://<your-service>.onrender.com/admin.html) — a downloaded local
+   copy (file://) cannot receive push notifications, browsers block it.
+   ============================================================================= */
+let pushStatus = 'unknown'; // unknown | unsupported | insecure | denied | off | on | busy
+
+function pushSupported(){
+  return 'serviceWorker' in navigator && 'PushManager' in window;
+}
+function pushSecureContext(){
+  // Push requires HTTPS (or localhost). A file:// copy fails this.
+  return window.isSecureContext && location.protocol !== 'file:';
+}
+function urlBase64ToUint8Array(base64String){
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+async function refreshPushStatus(){
+  if(!pushSecureContext()){ pushStatus = 'insecure'; return; }
+  if(!pushSupported()){ pushStatus = 'unsupported'; return; }
+  if(Notification.permission === 'denied'){ pushStatus = 'denied'; return; }
+  try{
+    const reg = await navigator.serviceWorker.getRegistration('/push-sw.js');
+    const sub = reg ? await reg.pushManager.getSubscription() : null;
+    pushStatus = sub ? 'on' : 'off';
+  }catch(e){ pushStatus = 'off'; }
+}
+async function enablePushNotifications(){
+  if(!pushSecureContext() || !pushSupported()) return;
+  pushStatus = 'busy'; renderApp();
+  try{
+    const keyRes = await fetch(`${API_BASE}/api/push/public-key`);
+    if(!keyRes.ok){ pushStatus='off'; showToast(t().pushSetupNeeded || 'Push not configured on the server yet'); renderApp(); return; }
+    const { publicKey } = await keyRes.json();
+
+    const permission = await Notification.requestPermission();
+    if(permission !== 'granted'){ pushStatus = permission==='denied' ? 'denied' : 'off'; renderApp(); return; }
+
+    const reg = await navigator.serviceWorker.register('/push-sw.js');
+    await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    });
+
+    await fetch(`${API_BASE}/api/push/subscribe`, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'X-Admin-Key': getAdminKey() },
+      body: JSON.stringify({ subscription: sub.toJSON() }),
+    });
+    pushStatus = 'on';
+    showToast(t().pushEnabledToast || 'Notifications enabled');
+  }catch(e){
+    pushStatus = 'off';
+    showToast(t().pushFailedToast || 'Could not enable notifications');
+  }
+  renderApp();
+}
+async function disablePushNotifications(){
+  pushStatus = 'busy'; renderApp();
+  try{
+    const reg = await navigator.serviceWorker.getRegistration('/push-sw.js');
+    const sub = reg ? await reg.pushManager.getSubscription() : null;
+    if(sub){
+      const endpoint = sub.endpoint;
+      await sub.unsubscribe();
+      fetch(`${API_BASE}/api/push/unsubscribe`, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'X-Admin-Key': getAdminKey() },
+        body: JSON.stringify({ endpoint }),
+      }).catch(()=>{});
+    }
+    pushStatus = 'off';
+  }catch(e){ pushStatus = 'off'; }
+  renderApp();
+}
+function registerPushServiceWorker(){
+  if(!pushSecureContext() || !pushSupported()) return;
+  navigator.serviceWorker.register('/push-sw.js').catch(()=>{});
+  navigator.serviceWorker.addEventListener('message', (event)=>{
+    if(event.data && event.data.type==='navigate-order' && event.data.orderId){
+      if(getAdminKey()) go('orderDetail', event.data.orderId);
+    }
+  });
+}
+function handlePushDeepLink(){
+  // A tapped notification opened/focused this tab with #order-<id> — jump
+  // straight there once we're connected and orders are loaded.
+  const m = /^#order-(.+)$/.exec(location.hash);
+  if(m && getAdminKey()) go('orderDetail', decodeURIComponent(m[1]));
+}
+
+/* ============================= HELPERS ============================= */
+function fmt(n){ return lang==='ar' ? n.toFixed(2) + ' د.أ' : n.toFixed(2) + ' JOD'; }
+function showToast(msg){
+  const el = document.getElementById('toast');
+  el.innerHTML = `${I.done}<span>${msg}</span>`;
+  el.classList.add('show');
+  clearTimeout(window._toastT);
+  window._toastT = setTimeout(()=>el.classList.remove('show'), 2400);
+}
+function go(name, param){ route = {name, param: param||null}; window.scrollTo({top:0,behavior:'smooth'}); renderApp(); }
+function setLang(l){ lang = l; document.documentElement.lang = l; document.documentElement.dir = T[l].dir; renderApp(); }
+function isStockAvailable(p){ return productStock[p.id] !== undefined ? productStock[p.id] : p.stock; }
+function isCategoryVisible(c){ return categoryVisible[c.id] !== undefined ? categoryVisible[c.id] : c.visible; }
+
+function openConfirm(opts){
+  confirmAction = opts;
+  document.getElementById('modalOverlay').classList.add('open');
+  document.getElementById('confirmModal').classList.add('open');
+  renderConfirmModal();
+}
+function closeConfirm(){
+  confirmAction = null;
+  document.getElementById('modalOverlay').classList.remove('open');
+  document.getElementById('confirmModal').classList.remove('open');
+}
+function runConfirm(){
+  if(confirmAction && confirmAction.onConfirm) confirmAction.onConfirm();
+  closeConfirm();
+}
+function renderConfirmModal(){
+  const d = t();
+  const m = document.getElementById('confirmModal');
+  if(!confirmAction){ m.innerHTML=''; return; }
+  m.innerHTML = `
+    <div class="ic">${I.warn}</div>
+    <h4>${confirmAction.title}</h4>
+    <p>${confirmAction.text}</p>
+    <div class="row">
+      <button class="btn btn-outline" onclick="closeConfirm()">${d.cancel}</button>
+      <button class="btn btn-primary" style="background:var(--danger);" onclick="runConfirm()">${confirmAction.confirmLabel||d.confirm}</button>
+    </div>`;
+}
+
+/* ============================= SIDEBAR / TOPBAR ============================= */
+function navItems(){
+  const d = t();
+  return [
+    {id:'dashboard', label:d.navDashboard, icon:I.dashboard},
+    {id:'orders', label:d.navOrders, icon:I.orders},
+    {id:'products', label:d.navProducts, icon:I.products},
+    {id:'categories', label:d.navCategories, icon:I.categories},
+    {id:'customers', label:d.navCustomers, icon:I.customers},
+    {id:'sales', label:d.navSales, icon:I.sales},
+    {id:'settings', label:d.navSettings, icon:I.settings},
+  ];
+}
+
+function pageTitle(){
+  const d = t();
+  const map = {dashboard:d.titleDashboard, orders:d.titleOrders, orderDetail:d.titleOrderDetail, products:d.titleProducts,
+    categories:d.titleCategories, customers:d.titleCustomers, sales:d.titleSales, settings:d.titleSettings};
+  return map[route.name] || d.titleDashboard;
+}
+
+function renderSidebar(){
+  const d = t();
+  const activeTop = route.name==='orderDetail' ? 'orders' : route.name;
+  document.getElementById('sidebar').innerHTML = `
+    <div class="sidebar-brand">
+      <div class="mark">TB</div>
+      <div class="txt"><b>${lang==='ar'?'القرية التركية':'Turkish Bazaar'}</b><span>${d.brandSub}</span></div>
+    </div>
+    <nav class="sidebar-nav">
+      ${navItems().map(n=>`<a href="#" class="${activeTop===n.id?'active':''}" onclick="closeSidebar();go('${n.id}');return false;">${n.icon}<span>${n.label}</span></a>`).join('')}
+    </nav>
+    <div class="sidebar-foot"><b>${d.prototypeMode}</b>${d.prototypeNote}</div>
+  `;
+  document.getElementById('sidebar').classList.toggle('open', sidebarOpen);
+  document.getElementById('sidebarOverlay').classList.toggle('open', sidebarOpen);
+}
+function toggleSidebar(){ sidebarOpen = !sidebarOpen; renderSidebar(); }
+function closeSidebar(){ sidebarOpen = false; }
+
+function renderTopbar(){
+  const d = t();
+  document.getElementById('topbar').innerHTML = `
+    <button class="mobile-toggle" onclick="toggleSidebar()">${I.menu}</button>
+    <h1>${pageTitle()}</h1>
+    <span class="demo-pill">${I.warn}${d.demoPill}</span>
+    <div class="lang-switch">
+      <button class="${lang==='en'?'active':''}" onclick="setLang('en')">EN</button>
+      <button class="${lang==='ar'?'active':''}" onclick="setLang('ar')">AR</button>
+    </div>
+    <div class="admin-avatar">AD</div>
+  `;
+}
+
+/* ============================= DASHBOARD ============================= */
+function ordersGateHtml(){
+  const d = t();
+  if(ordersError==='network'){
+    return `<div class="card"><div class="empty-note">${d.connectionError}<div style="margin-top:12px;"><button class="btn btn-outline btn-sm" onclick="fetchOrders()">${d.retry}</button></div></div></div>`;
+  }
+  if(ORDERS===null){
+    return `<div class="card"><div class="empty-note">${d.loadingOrders}</div></div>`;
+  }
+  return null;
+}
+
+function renderDashboard(){
+  const d = t();
+  const gate = ordersGateHtml();
+  if(gate){
+    document.getElementById('content').innerHTML = `<div class="page-head"><div><h2>${d.welcome}</h2><p>${d.welcomeSub}</p></div></div>${gate}`;
+    return;
+  }
+  const list = ORDERS;
+  const totalOrders = list.length;
+  const newOrders = list.filter(o=>o.status==='new').length;
+  const preparing = list.filter(o=>o.status==='preparing'||o.status==='confirmed').length;
+  const completed = list.filter(o=>o.status==='completed').length;
+  const totalSales = list.filter(o=>o.status!=='cancelled').reduce((s,o)=>s+o.total,0);
+
+  const now = new Date();
+  const weekStart = new Date(now); weekStart.setDate(weekStart.getDate()-7);
+  const prevWeekStart = new Date(now); prevWeekStart.setDate(prevWeekStart.getDate()-14);
+  const thisWeek = ordersInRange(list, weekStart, now);
+  const prevWeek = ordersInRange(list, prevWeekStart, weekStart);
+  const thisWeekSales = thisWeek.filter(o=>o.status!=='cancelled').reduce((s,o)=>s+o.total,0);
+  const prevWeekSales = prevWeek.filter(o=>o.status!=='cancelled').reduce((s,o)=>s+o.total,0);
+  const ordersTrendPct = pctChange(thisWeek.length, prevWeek.length);
+  const salesTrendPct = pctChange(thisWeekSales, prevWeekSales);
+  const trendStr = pct => `${pct>=0?'+':''}${pct}% ${d.trendUp}`;
+
+  const weekSales = computeWeekSales(list);
+  const bestSellers = computeBestSellers(list);
+  const maxW = Math.max(1, ...weekSales.map(x=>x.v));
+
+  const stats = [
+    {label:d.statTotalOrders, val:totalOrders, icon:I.bag, bg:'var(--info-bg)', color:'var(--info)',
+     trend: ordersTrendPct===null?d.trendTrack:trendStr(ordersTrendPct), up: ordersTrendPct===null?null:ordersTrendPct>=0},
+    {label:d.statNewOrders, val:newOrders, icon:I.new, bg:'var(--new-bg)', color:'var(--new)', trend: newOrders>0?d.trendAttention:d.trendTrack, up:null},
+    {label:d.statPreparing, val:preparing, icon:I.prep, bg:'var(--warn-bg)', color:'var(--warn)', trend:d.trendTrack, up:null},
+    {label:d.statCompleted, val:completed, icon:I.done, bg:'var(--ok-bg)', color:'var(--ok)', trend:d.trendTrack, up:null},
+    {label:d.statTotalSales, val:fmt(totalSales), icon:I.money, bg:'var(--new-bg)', color:'var(--gold-dim)',
+     trend: salesTrendPct===null?d.trendTrack:trendStr(salesTrendPct), up: salesTrendPct===null?null:salesTrendPct>=0},
+  ];
+
+  document.getElementById('content').innerHTML = `
+    <div class="page-head">
+      <div><h2>${d.welcome}</h2><p>${d.welcomeSub}</p></div>
+      <button class="btn btn-primary" onclick="go('orders')">${I.orders}${d.viewAllOrders}</button>
+    </div>
+
+    <div class="stat-grid">
+      ${stats.map(s=>`
+        <div class="card stat-card">
+          <div class="stat-top">
+            <span class="stat-icon" style="background:${s.bg};color:${s.color};">${s.icon}</span>
+            ${s.up===true?`<span class="stat-trend up">▲ ${s.trend}</span>`:s.up===false?`<span class="stat-trend down">▼ ${s.trend}</span>`:`<span class="stat-trend" style="color:var(--ink-faint)">${s.trend}</span>`}
+          </div>
+          <div class="stat-num">${s.val}</div>
+          <div class="stat-label">${s.label}</div>
+        </div>`).join('')}
+    </div>
+
+    ${totalOrders===0 ? `<div class="card"><div class="empty-note">${d.noOrdersYet}</div></div>` : `
+    <div class="dash-grid">
+      <div class="card chart-card">
+        <h3>${d.chartTitle}</h3>
+        <div class="sub">${d.chartSub}</div>
+        <div class="bars">
+          ${weekSales.map(x=>`
+            <div class="bar-col">
+              <div class="bar" style="height:${(x.v/maxW*100).toFixed(0)}%;"><span class="bar-val">${fmt(x.v)}</span></div>
+              <span class="bar-lbl">${lang==='ar'?x.ar:x.en}</span>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <div class="card chart-card">
+        <h3>${d.bestSellers}</h3>
+        <div class="sub">${d.bestSellersSub}</div>
+        ${bestSellers.length ? bestSellers.map((b,i)=>{
+          const pct = (b.units/bestSellers[0].units*100).toFixed(0);
+          return `<div style="margin-bottom:14px;">
+            <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:5px;">
+              <span>${i+1}. ${lang==='ar'?b.ar:b.en}</span><span style="color:var(--ink-soft);">${b.units} ${d.sold}</span>
+            </div>
+            <div style="height:6px;background:var(--cream-2);border-radius:6px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--gold-dim),var(--gold-light));border-radius:6px;"></div>
+            </div>
+          </div>`;
+        }).join('') : `<div class="empty-note">${d.noOrdersYet}</div>`}
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:18px;padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <h3 style="margin:0;font-size:.98rem;">${d.recentOrders}</h3>
+        <button class="btn btn-ghost btn-sm" onclick="go('orders')">${d.viewAll}</button>
+      </div>
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>${d.colOrder}</th><th>${d.colCustomer}</th><th>${d.colDate}</th><th>${d.colTotal}</th><th>${d.colStatus}</th></tr></thead>
+          <tbody>
+            ${list.slice(0,5).map(o=>`
+              <tr onclick="go('orderDetail','${o.no}')">
+                <td class="cell-strong">${o.no}</td>
+                <td>${lang==='ar'?o.custAr:o.custEn}</td>
+                <td class="cell-muted">${o.date}</td>
+                <td class="cell-strong">${fmt(o.total)}</td>
+                <td><span class="badge ${o.status}">${statusLabel(o.status)}</span></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    `}
+  `;
+}
+
+/* ============================= ORDERS ============================= */
+function setOrderFilter(f){ orderFilter=f; renderApp(); }
+function onOrderSearch(v){ orderSearch=v; renderApp(); const el=document.getElementById('orderSearchInput'); if(el){el.focus(); el.setSelectionRange(v.length,v.length);} }
+
+function renderOrders(){
+  const d = t();
+  const gate = ordersGateHtml();
+  if(gate){
+    document.getElementById('content').innerHTML = `<div class="page-head"><div><h2>${d.titleOrders}</h2></div></div>${gate}`;
+    return;
+  }
+  let list = ORDERS;
+  const totalCount = list.length;
+  if(orderFilter!=='all') list = list.filter(o=>o.status===orderFilter);
+  if(orderSearch.trim()){
+    const q = orderSearch.trim().toLowerCase();
+    list = list.filter(o=> o.no.toLowerCase().includes(q) || o.custEn.toLowerCase().includes(q) || o.custAr.includes(orderSearch.trim()) || o.phone.includes(q));
+  }
+  const filters = [['all',d.filterAll],['new',d.filterNew],['preparing',d.filterPreparing],['completed',d.filterCompleted],['cancelled',d.filterCancelled]];
+  const emptyMsg = totalCount===0 ? d.noOrdersYet : d.noOrdersMatch;
+
+  document.getElementById('content').innerHTML = `
+    <div class="page-head">
+      <div><h2>${d.titleOrders}</h2><p>${totalCount} ${d.ordersTotal}</p></div>
+    </div>
+    <div class="toolbar">
+      <div class="filter-chips">
+        ${filters.map(([k,l])=>`<button class="filter-chip ${orderFilter===k?'active':''}" onclick="setOrderFilter('${k}')">${l}</button>`).join('')}
+      </div>
+      <div class="search-input">${I.search}<input id="orderSearchInput" type="text" placeholder="${d.searchOrdersPh}" value="${orderSearch}" oninput="onOrderSearch(this.value)"></div>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>${d.colOrder}</th><th>${d.colCustomer}</th><th>${d.colPhone}</th><th>${d.colDate}</th><th>${d.colTotal}</th><th>${d.colPayment}</th><th>${d.colStatus}</th></tr></thead>
+          <tbody>
+            ${list.length ? list.map(o=>`
+              <tr onclick="go('orderDetail','${o.no}')">
+                <td class="cell-strong">${o.no}</td>
+                <td>${lang==='ar'?o.custAr:o.custEn}</td>
+                <td class="cell-muted">${o.phone}</td>
+                <td class="cell-muted">${o.date}</td>
+                <td class="cell-strong">${fmt(o.total)}</td>
+                <td class="cell-muted">${lang==='ar'?o.paymentAr:o.paymentEn}</td>
+                <td><span class="badge ${o.status}">${statusLabel(o.status)}</span></td>
+              </tr>`).join('') : `<tr><td colspan="7"><div class="empty-note">${emptyMsg}</div></td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================= ORDER DETAIL ============================= */
+async function setOrderStatus(no, status){
+  const d = t();
+  const o = ORDERS && ORDERS.find(x=>x.no===no);
+  if(!o) return;
+  const prevStatus = o.status;
+  o.status = status; // optimistic
+  renderApp();
+  try{
+    await patchFulfillment(no, status);
+    showToast(tpl(d.statusOrderToast, {no, status:statusLabel(status)}));
+  }catch(e){
+    o.status = prevStatus; // revert — the backend didn't confirm the change
+    showToast(d.statusOrderError);
+    renderApp();
+  }
+}
+function cancelOrderConfirm(no){
+  const d = t();
+  openConfirm({
+    title:d.cancelOrderTitle,
+    text:tpl(d.cancelOrderText, {no}),
+    confirmLabel:d.cancelOrder,
+    onConfirm:()=>setOrderStatus(no,'cancelled'),
+  });
+}
+
+function waLink(phone, text){
+  let digits = String(phone||'').replace(/[^0-9]/g,'');
+  if(digits.startsWith('00962')) digits = digits.slice(2);
+  if(digits.startsWith('0')) digits = '962'+digits.slice(1);
+  if(!digits.startsWith('962')) digits = '962'+digits;
+  return `https://wa.me/${digits}${text?('?text='+encodeURIComponent(text)):''}`;
+}
+
+function renderOrderDetail(no){
+  const d = t();
+  if(ORDERS===null){
+    const gate = ordersGateHtml();
+    document.getElementById('content').innerHTML = `<div class="page-head"><div><h2>${no}</h2></div></div>${gate||''}`;
+    return;
+  }
+  const o = ORDERS.find(x=>x.no===no);
+  if(!o){ go('orders'); return; }
+  const flowIdx = STATUS_FLOW.indexOf(o.status);
+
+  document.getElementById('content').innerHTML = `
+    <a href="#" class="back-link" onclick="go('orders');return false;">${I.back}${d.backToOrders}</a>
+    <div class="page-head">
+      <div><h2>${o.no}</h2><p>${d.placedOn} ${o.date}</p></div>
+      <span class="badge ${o.status}" style="font-size:.78rem;padding:7px 14px;">${statusLabel(o.status)}</span>
+    </div>
+
+    <div class="card od-section">
+      <h4>${d.orderStatusHead}</h4>
+      ${o.status==='cancelled' ? `<div class="tl-cancelled-note">${I.warn}<span>${d.cancelledNote}</span></div>` : `
+      <div class="timeline">
+        ${STATUS_FLOW.map((s,i)=>`
+          <div class="tl-step ${i<flowIdx?'done':i===flowIdx?'current':''}" onclick="setOrderStatus('${o.no}','${s}')" title="${statusLabel(s)}">
+            <div class="tl-line"></div>
+            <div class="tl-dot">${i<flowIdx?I.done:I.new}</div>
+            <div class="tl-label">${statusLabel(s)}</div>
+          </div>`).join('')}
+      </div>`}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+        ${flowIdx>=0 && flowIdx<STATUS_FLOW.length-1 && o.status!=='cancelled' ? `<button class="btn btn-primary btn-sm" onclick="setOrderStatus('${o.no}','${STATUS_FLOW[flowIdx+1]}')">${d.advanceTo} "${statusLabel(STATUS_FLOW[flowIdx+1])}"</button>` : ''}
+        ${o.status!=='cancelled' && o.status!=='completed' ? `<button class="btn-danger-ghost" onclick="cancelOrderConfirm('${o.no}')">${d.cancelOrder}</button>` : ''}
+      </div>
+    </div>
+
+    <div class="od-grid">
+      <div>
+        <div class="card od-section">
+          <h4>${d.orderItemsHead}</h4>
+          ${o.items.map(it=>`
+            <div class="od-item-row">
+              <div class="od-item-thumb">${I.bag}</div>
+              <div class="od-item-info"><div class="nm">${lang==='ar'?it.ar:it.en}</div><div class="wt">${lang==='ar'?it.weightAr:it.weightEn}</div></div>
+              <div class="od-item-qty">× ${it.qty}</div>
+              <div class="od-item-price">${fmt(it.price*it.qty)}</div>
+            </div>`).join('')}
+          <div style="margin-top:14px;">
+            <div class="od-totals-row"><span>${d.subtotal}</span><span>${fmt(o.subtotal)}</span></div>
+            <div class="od-totals-row"><span>${d.delivery}</span><span>${o.delivery===0?d.free:fmt(o.delivery)}</span></div>
+            <div class="od-totals-row grand"><span>${d.total}</span><span>${fmt(o.total)}</span></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="card od-section">
+          <h4>${d.customerHead}</h4>
+          <div class="od-cust-row"><span class="lbl">${d.name}</span><span>${lang==='ar'?o.custAr:o.custEn}</span></div>
+          <div class="od-cust-row"><span class="lbl">${d.phone}</span><span>${o.phone}</span></div>
+          <div class="od-cust-row"><span class="lbl">${d.payment}</span><span>${lang==='ar'?o.paymentAr:o.paymentEn}</span></div>
+          <div class="od-cust-row"><span class="lbl">${d.address}</span><span style="text-align:end;max-width:60%;">${lang==='ar'?o.addrAr:o.addrEn}</span></div>
+          ${o.notes ? `<div class="od-cust-row"><span class="lbl">${d.notes}</span><span style="text-align:end;max-width:60%;">${o.notes}</span></div>` : ''}
+          ${o.phone ? `<a class="btn btn-primary btn-sm" style="width:100%;justify-content:center;margin-top:14px;background:#25563B;" href="${waLink(o.phone, lang==='ar'?`مرحبًا، بخصوص طلبك #${o.no}`:`Hello, about your order #${o.no}`)}" target="_blank" rel="noopener">${lang==='ar'?'تواصل عبر واتساب':'Contact via WhatsApp'}</a>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================= PRODUCTS ============================= */
+function toggleStock(id){
+  const d = t();
+  productStock[id] = !isStockAvailable(DEMO_PRODUCTS.find(p=>p.id===id));
+  renderApp();
+  showToast(d.stockToast);
+}
+function deleteProductConfirm(id, nameEn, nameAr){
+  const d = t();
+  const nm = lang==='ar'?nameAr:nameEn;
+  openConfirm({
+    title:d.deleteConfirmTitle,
+    text:tpl(d.deleteConfirmText,{name:nm}),
+    confirmLabel:d.delete,
+    onConfirm:()=>showToast(tpl(d.deleteToast,{name:nm})),
+  });
+}
+function fakeAction(msg){ showToast(msg); }
+function editProductToast(nameEn,nameAr){ const d=t(); showToast(tpl(d.editToast,{name:lang==='ar'?nameAr:nameEn})); }
+function editCategoryToast(nameEn,nameAr){ const d=t(); showToast(tpl(d.catEditToast,{name:lang==='ar'?nameAr:nameEn})); }
+
+function renderProducts(){
+  const d = t();
+  document.getElementById('content').innerHTML = `
+    <div class="page-head">
+      <div><h2>${d.titleProducts}</h2><p>${DEMO_PRODUCTS.length} ${d.productsSub} ${CATS.length} ${d.categoriesWord} · ${d.catalogNote}</p></div>
+      <button class="btn btn-primary" onclick="fakeAction('${d.addProductToast}')">${I.plus}${d.addProduct}</button>
+    </div>
+    <div class="admin-product-grid">
+      ${DEMO_PRODUCTS.map(p=>{
+        const inStock = isStockAvailable(p);
+        const nm = lang==='ar'?p.ar:p.en;
+        return `
+        <div class="card admin-product-card">
+          ${p.badgeEn?`<span class="badge new ap-badge">${lang==='ar'?p.badgeAr:p.badgeEn}</span>`:''}
+          <div class="thumb">${I.bag}</div>
+          <div class="cat">${catName(p.cat)}</div>
+          <h4>${nm}</h4>
+          <div class="meta"><span>${lang==='ar'?p.weightAr:p.weightEn}</span><span class="badge ${inStock?'instock':'outofstock'}">${inStock?d.inStock:d.outOfStock}</span></div>
+          <div class="price">${fmt(p.price)}</div>
+          <div class="row-actions">
+            <button class="btn btn-ghost btn-sm" onclick="editProductToast('${p.en.replace(/'/g,"\\'")}','${p.ar.replace(/'/g,"\\'")}')">${I.edit}${d.edit}</button>
+            <button class="btn btn-ghost btn-sm" onclick="toggleStock('${p.id}')">${inStock?I.eyeOff:I.eye}${inStock?d.hide:d.show}</button>
+            <button class="btn-danger-ghost" onclick="deleteProductConfirm('${p.id}','${p.en.replace(/'/g,"\\'")}','${p.ar.replace(/'/g,"\\'")}')">${I.trash}</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+/* ============================= CATEGORIES ============================= */
+function toggleCategory(id){
+  const d = t();
+  const c = DEMO_CATEGORIES.find(x=>x.id===id);
+  categoryVisible[id] = !isCategoryVisible(c);
+  renderApp();
+  showToast(d.categoryVisToast);
+}
+
+function renderCategories(){
+  const d = t();
+  document.getElementById('content').innerHTML = `
+    <div class="page-head">
+      <div><h2>${d.titleCategories}</h2><p>${DEMO_CATEGORIES.length} ${d.categoriesSub}</p></div>
+      <button class="btn btn-primary" onclick="fakeAction('${d.addCategoryToast}')">${I.plus}${d.addCategory}</button>
+    </div>
+    <div class="card" style="padding:10px;">
+      <div class="cat-list">
+        ${DEMO_CATEGORIES.map(c=>{
+          const vis = isCategoryVisible(c);
+          const cat = CATS.find(x=>x.id===c.catId);
+          const nm = lang==='ar'?cat.ar:cat.en;
+          return `
+          <div class="cat-row">
+            <div class="cat-icon">${I.categories}</div>
+            <div class="cat-info"><h4>${nm}</h4><span>${c.count} ${d.productsWord}</span></div>
+            <div class="row-actions">
+              <button class="btn btn-ghost btn-sm" onclick="editCategoryToast('${cat.en}','${cat.ar}')">${I.edit}${d.edit}</button>
+              <div class="toggle ${vis?'on':''}" onclick="toggleCategory('${c.id}')" title="${vis?d.show:d.hide}"><div class="knob"></div></div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+/* ============================= CUSTOMERS ============================= */
+function renderCustomers(){
+  const d = t();
+  const gate = ordersGateHtml();
+  if(gate){
+    document.getElementById('content').innerHTML = `<div class="page-head"><div><h2>${d.titleCustomers}</h2></div></div>${gate}`;
+    return;
+  }
+  const customers = deriveCustomers(ORDERS);
+  document.getElementById('content').innerHTML = `
+    <div class="page-head">
+      <div><h2>${d.titleCustomers}</h2><p>${customers.length} ${d.customersSub}</p></div>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>${d.colCustomer}</th><th>${d.colPhone}</th><th>${d.colOrders}</th><th>${d.colSpent}</th><th>${d.colLast}</th></tr></thead>
+          <tbody>
+            ${customers.length ? customers.map(c=>{
+              const nm = (lang==='ar'?c.ar:c.en) || c.phone || '—';
+              return `
+              <tr onclick="fakeAction('${d.customerRowToast}')">
+                <td><div class="cust-name-cell"><span class="cust-avatar">${nm.split(' ').map(w=>w[0]).join('').slice(0,2)}</span>${nm}</div></td>
+                <td class="cell-muted">${c.phone}</td>
+                <td class="cell-strong">${c.orders}</td>
+                <td class="cell-strong">${fmt(c.spent)}</td>
+                <td class="cell-muted">${c.last}</td>
+              </tr>`;
+            }).join('') : `<tr><td colspan="5"><div class="empty-note">${d.noOrdersYet}</div></td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================= SALES ============================= */
+function renderSales(){
+  const d = t();
+  const gate = ordersGateHtml();
+  if(gate){
+    document.getElementById('content').innerHTML = `<div class="page-head"><div><h2>${d.titleSales}</h2></div></div>${gate}`;
+    return;
+  }
+  const list = ORDERS;
+  const nonCancelled = list.filter(o=>o.status!=='cancelled');
+  const now = new Date();
+  const dayStart = new Date(now); dayStart.setHours(0,0,0,0);
+  const weekStart = new Date(now); weekStart.setDate(weekStart.getDate()-7);
+  const monthStart = new Date(now); monthStart.setDate(monthStart.getDate()-30);
+  const today = ordersInRange(nonCancelled, dayStart, new Date(now.getTime()+86400000)).reduce((s,o)=>s+o.total,0);
+  const week = ordersInRange(nonCancelled, weekStart, now).reduce((s,o)=>s+o.total,0);
+  const month = ordersInRange(nonCancelled, monthStart, now).reduce((s,o)=>s+o.total,0);
+  const weekSales = computeWeekSales(list);
+  const bestSellers = computeBestSellers(list);
+  const maxW = Math.max(1, ...weekSales.map(x=>x.v));
+  document.getElementById('content').innerHTML = `
+    <div class="page-head"><div><h2>${d.titleSales}</h2><p>${d.salesSub}</p></div></div>
+    <div class="stat-grid" style="grid-template-columns:repeat(2,1fr);">
+      <div class="card stat-card"><div class="stat-icon" style="background:var(--new-bg);color:var(--gold-dim);width:34px;height:34px;">${I.money}</div><div class="stat-num">${fmt(today)}</div><div class="stat-label">${d.todaySales}</div></div>
+      <div class="card stat-card"><div class="stat-icon" style="background:var(--info-bg);color:var(--info);width:34px;height:34px;">${I.chart}</div><div class="stat-num">${fmt(week)}</div><div class="stat-label">${d.weekSales}</div></div>
+      <div class="card stat-card"><div class="stat-icon" style="background:var(--ok-bg);color:var(--ok);width:34px;height:34px;">${I.chart}</div><div class="stat-num">${fmt(month)}</div><div class="stat-label">${d.monthSales}</div></div>
+      <div class="card stat-card"><div class="stat-icon" style="background:var(--warn-bg);color:var(--warn);width:34px;height:34px;">${I.bag}</div><div class="stat-num">${list.length}</div><div class="stat-label">${d.statTotalOrders}</div></div>
+    </div>
+    ${list.length===0 ? `<div class="card"><div class="empty-note">${d.noOrdersYet}</div></div>` : `
+    <div class="dash-grid">
+      <div class="card chart-card">
+        <h3>${d.weeklyTrend}</h3>
+        <div class="sub">${d.weeklyTrendSub}</div>
+        <div class="bars">
+          ${weekSales.map(x=>`<div class="bar-col"><div class="bar" style="height:${(x.v/maxW*100).toFixed(0)}%;"><span class="bar-val">${fmt(x.v)}</span></div><span class="bar-lbl">${lang==='ar'?x.ar:x.en}</span></div>`).join('')}
+        </div>
+      </div>
+      <div class="card chart-card">
+        <h3>${d.bestSellers}</h3>
+        <div class="sub">${d.bestSellersSub}</div>
+        ${bestSellers.length ? bestSellers.map((b,i)=>{
+          const pct=(b.units/bestSellers[0].units*100).toFixed(0);
+          return `<div style="margin-bottom:14px;"><div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:5px;"><span>${i+1}. ${lang==='ar'?b.ar:b.en}</span><span style="color:var(--ink-soft);">${b.units} ${d.sold}</span></div><div style="height:6px;background:var(--cream-2);border-radius:6px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--gold-dim),var(--gold-light));border-radius:6px;"></div></div></div>`;
+        }).join('') : `<div class="empty-note">${d.noOrdersYet}</div>`}
+      </div>
+    </div>
+    `}
+  `;
+}
+
+/* ============================= SETTINGS ============================= */
+function exportOrdersCsv(){
+  const d = t();
+  if(!ORDERS || !ORDERS.length){ showToast(d.noOrdersYet); return; }
+  const headers = ['Order','Name','Phone','Address','Notes','Date','Payment','Status','Subtotal','Delivery','Total'];
+  const rows = ORDERS.map(o=>[o.no,o.custEn,o.phone,o.addrEn,o.notes||'',o.date,o.paymentEn,statusLabel(o.status),o.subtotal.toFixed(2),o.delivery.toFixed(2),o.total.toFixed(2)]);
+  const esc = v => `"${String(v==null?'':v).replace(/"/g,'""')}"`;
+  const csv = [headers, ...rows].map(r=>r.map(esc).join(',')).join('\r\n');
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `turkish-bazaar-orders-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function renderNotifRow(d){
+  if(pushStatus==='unsupported') return `<div class="settings-row"><span class="cell-muted">${d.notifUnsupported}</span></div>`;
+  if(pushStatus==='insecure') return `<div class="settings-row"><span class="cell-muted">${d.notifInsecure}</span></div>`;
+  if(pushStatus==='denied') return `<div class="settings-row"><span class="cell-muted">${d.notifDenied}</span></div>`;
+  if(pushStatus==='busy') return `<div class="settings-row"><span class="cell-muted">${d.notifBusy}</span></div>`;
+  if(pushStatus==='on') return `<div class="settings-row"><span class="badge instock">${d.notifOn}</span><button class="btn-danger-ghost" onclick="disablePushNotifications()">${d.notifDisableBtn}</button></div>`;
+  return `<div class="settings-row"><span class="cell-muted">${d.notifOff}</span><button class="btn btn-primary btn-sm" onclick="enablePushNotifications()">${d.notifEnableBtn}</button></div>`;
+}
+function renderSettings(){
+  const d = t();
+  const key = getAdminKey();
+  const masked = key ? (key.slice(0,4) + '•'.repeat(Math.max(0,key.length-4))) : '';
+  document.getElementById('content').innerHTML = `
+    <div class="page-head"><div><h2>${d.titleSettings}</h2><p>${d.settingsSub}</p></div></div>
+    <div class="settings-grid">
+      <div class="card settings-card">
+        <h4>${d.storeInfo}</h4>
+        <div class="settings-row"><span>${d.storeName}</span><span class="cell-muted">${lang==='ar'?'القرية التركية':'Turkish Bazaar'}</span></div>
+        <div class="settings-row"><span>${d.phones}</span><span class="cell-muted">0790101517 / 0790152152</span></div>
+        <div class="settings-row"><span>${d.branches}</span><span class="cell-muted">${d.branchesVal}</span></div>
+        <div class="settings-row"><span>${d.deliveryCoverage}</span><span class="cell-muted">${d.deliveryCoverageVal}</span></div>
+      </div>
+      <div class="card settings-card">
+        <h4>${d.orderPrefs}</h4>
+        <div class="settings-row"><span>${d.freeThreshold}</span><span class="cell-muted">${fmt(40)}</span></div>
+        <div class="settings-row"><span>${d.standardFee}</span><span class="cell-muted">${fmt(3)}</span></div>
+        <div class="settings-row"><span>${d.whatsappOrdering}</span><span class="badge instock">${d.enabled}</span></div>
+        <div class="settings-row"><span>${d.websiteCheckout}</span><span class="badge instock">${d.prototype}</span></div>
+      </div>
+      <div class="card settings-card">
+        <h4>${d.adminKeySettings}</h4>
+        <div class="settings-row"><span class="cell-muted">${masked}</span><span class="badge instock">${d.adminKeyConnected}</span></div>
+        <div class="settings-row"><span>${d.adminKeyChange}</span><button class="btn-danger-ghost" onclick="disconnectAdmin()">${d.adminKeyDisconnect}</button></div>
+      </div>
+      <div class="card settings-card">
+        <h4>${d.notifSettings}</h4>
+        <p style="color:var(--ink-soft);font-size:.8rem;margin:0 0 12px;">${d.notifDesc}</p>
+        ${renderNotifRow(d)}
+      </div>
+      <div class="card settings-card">
+        <h4>${d.shopWaSettings}</h4>
+        <p style="color:var(--ink-soft);font-size:.8rem;margin:0 0 12px;">${d.shopWaDesc}</p>
+        ${shopWa
+          ? `<div class="settings-row"><span class="cell-muted">${shopWa}</span><span class="badge instock">${d.shopWaConnected}</span></div>
+             <div class="settings-row"><span>${d.shopWaChange}</span><input id="shopWaInput" type="tel" value="${shopWa}" placeholder="${d.shopWaLabel}" style="max-width:220px;"><button class="btn btn-primary btn-sm" onclick="saveShopWhatsapp()">${d.shopWaSaveBtn}</button></div>`
+          : `<div class="settings-row" style="flex-wrap:wrap;gap:8px;"><input id="shopWaInput" type="tel" placeholder="${d.shopWaLabel}" style="flex:1;min-width:180px;"><button class="btn btn-primary btn-sm" onclick="saveShopWhatsapp()">${d.shopWaSaveBtn}</button></div>`}
+      </div>
+      <div class="card settings-card">
+        <h4>${d.dangerZone}</h4>
+        <div class="settings-row"><span>${d.exportData}</span><button class="btn btn-ghost btn-sm" onclick="exportOrdersCsv()">${d.exportBtn}</button></div>
+      </div>
+      <div class="card settings-card">
+        <h4>${d.adminUsers}</h4>
+        <div class="settings-row"><span>Admin</span><span class="cell-muted">${d.owner}</span></div>
+        <div class="settings-row"><span>${d.inviteMember}</span><button class="btn btn-ghost btn-sm" onclick="fakeAction('${d.inviteToast}')">${I.plus}${d.invite}</button></div>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================= CONNECT SCREEN ============================= */
+function renderConnectScreen(isError){
+  const d = t();
+  document.getElementById('content').innerHTML = `
+    <div class="card" style="max-width:440px;margin:40px auto;padding:32px;text-align:center;">
+      <div class="stat-icon" style="background:var(--new-bg);color:var(--gold-dim);width:48px;height:48px;margin:0 auto 16px;">${I.settings}</div>
+      <h2 style="margin:0 0 8px;font-size:1.2rem;">${d.connectTitle}</h2>
+      <p style="color:var(--ink-soft);font-size:.86rem;margin-bottom:18px;">${d.connectText}</p>
+      ${isError ? `<p style="color:var(--danger);font-size:.82rem;margin-bottom:14px;">${d.connectWrongKey}</p>` : ''}
+      <div class="form-field" style="text-align:start;margin-bottom:14px;">
+        <label style="font-size:.76rem;color:var(--ink-soft);display:block;margin-bottom:6px;">${d.connectKeyLabel}</label>
+        <input id="adminKeyInput" type="password" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:.86rem;" placeholder="••••••••••••" onkeydown="if(event.key==='Enter')submitAdminKey()">
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="submitAdminKey()">${d.connectBtn}</button>
+      <p style="color:var(--ink-faint);font-size:.74rem;margin-top:16px;">${d.connectHelp}</p>
+    </div>
+  `;
+}
+
+/* ============================= ROUTER / RENDER ============================= */
+function pageContent(){
+  switch(route.name){
+    case 'dashboard': return renderDashboard();
+    case 'orders': return renderOrders();
+    case 'orderDetail': return renderOrderDetail(route.param);
+    case 'products': return renderProducts();
+    case 'categories': return renderCategories();
+    case 'customers': return renderCustomers();
+    case 'sales': return renderSales();
+    case 'settings': return renderSettings();
+    default: return renderDashboard();
+  }
+}
+function renderApp(){
+  renderSidebar();
+  renderTopbar();
+  if(!getAdminKey()){
+    renderConnectScreen(false);
+  } else if(ordersError==='unauthorized'){
+    renderConnectScreen(true);
+  } else {
+    pageContent();
+  }
+  if(confirmAction) renderConfirmModal();
+}
+
+document.getElementById('sidebarOverlay').addEventListener('click', ()=>{ sidebarOpen=false; renderSidebar(); });
+document.getElementById('modalOverlay').addEventListener('click', closeConfirm);
+
+renderApp();
+if(getAdminKey()) fetchOrders();
+// Auto-refresh so new orders (and status changes from another device) show
+// up without a manual reload.
+setInterval(()=>{ if(getAdminKey() && ordersError!=='unauthorized') fetchOrders(); }, 20000);
+
+// Push notifications: register the service worker up front (harmless if
+// already registered), figure out whether notifications are already on for
+// this device/browser, and if a notification was just tapped (deep link
+// via #order-<id>), jump straight to that order once connected.
+registerPushServiceWorker();
+refreshPushStatus().then(renderApp);
+window.addEventListener('hashchange', handlePushDeepLink);
+if(getAdminKey()) handlePushDeepLink();
+</script>
+</body>
+</html>
