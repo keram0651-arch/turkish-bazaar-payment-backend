@@ -44,6 +44,19 @@ app.use('/api/orders', dinarakPayRoute);
 app.use('/api/orders', dinarakResolveRoute);
 app.use('/api/push', pushRoute);
 
+// Product/site images now live as real static files under public/images
+// (extracted out of index.html, which used to embed every image as base64 —
+// that made the page itself ~18.5MB per visit and blew through Render's free
+// 5GB/month outbound bandwidth in a few hundred page loads). Long cache
+// lifetime here is safe: these filenames don't change when the storefront
+// copy changes, only when an image itself is replaced (upload a new file
+// with a different name in that case, so browsers/CDNs don't keep serving
+// the old cached one).
+app.use('/images', express.static(path.join(__dirname, 'public', 'images'), {
+  maxAge: '30d',
+  immutable: true,
+}));
+
 // Serves public/admin.html + public/push-sw.js over HTTPS (this same Render
 // URL) — required for Web Push: browsers refuse to grant push subscriptions
 // to a page opened as a local file:// download. Open the admin panel at
