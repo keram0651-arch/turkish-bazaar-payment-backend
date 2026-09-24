@@ -2903,7 +2903,13 @@ function weightSortRank(p){
   // Falls back to price (higher price = larger portion) when weight text is ambiguous.
   const w = (p.weightEn || '').toLowerCase();
   const num = parseFloat(w.replace(/[^\d.]/g, ''));
-  if(!isNaN(num)) return num;
+  if(!isNaN(num)){
+    // Normalize units: a plain-gram value like "550g" has a bigger raw
+    // number than "1 KG" even though it's a smaller portion — convert
+    // gram values down to kilograms so the comparison is apples-to-apples.
+    const isGrams = /g/.test(w) && !/kg/.test(w);
+    return isGrams ? num/1000 : num;
+  }
   return p.price || 0;
 }
 function groupProductWeightPairs(items){
