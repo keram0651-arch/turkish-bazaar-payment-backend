@@ -68,6 +68,15 @@ router.patch('/:orderId/fulfillment', requireAdminKey, async (req, res) => {
   }
 });
 
+// DELETE /api/orders/:orderId — permanently removes one order (e.g. test
+// orders created while setting up the store). Irreversible, so it's gated
+// the same as the other admin-only routes above.
+router.delete('/:orderId', requireAdminKey, async (req, res) => {
+  const order = await store.deleteOrder(req.params.orderId);
+  if (!order) return res.status(404).json({ error: 'Order not found' });
+  res.json({ orderId: order.orderId, deleted: true });
+});
+
 // GET /api/orders/:orderId/status — frontend polls this.
 // While the order is still PENDING_PAYMENT, this also (throttled) asks
 // Dinarak's GetBusinessTransactions whether the customer's transfer has
