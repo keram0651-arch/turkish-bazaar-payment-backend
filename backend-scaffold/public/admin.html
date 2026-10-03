@@ -375,6 +375,8 @@ const T = {
     orderItemsHead:'Order Items', subtotal:'Subtotal', delivery:'Delivery', total:'Total', free:'Free',
     customerHead:'Customer', name:'Name', phone:'Phone', payment:'Payment', address:'Address', notes:'Notes',
     cancelOrderTitle:'Cancel this order?', cancelOrderText:'This will mark order {no} as cancelled.',
+    deleteOrderTitle:'Delete this order permanently?', deleteOrderText:'This will permanently delete order {no}. This cannot be undone — use it for test/trial orders only.',
+    deleteOrder:'Delete Order', deleteOrderToast:'Order {no} deleted.', deleteOrderError:'Could not delete the order — try again.',
     cancel:'Cancel', confirm:'Confirm',
     productsSub:'catalog products across', categoriesWord:'categories',
     addProduct:'Add Product', addProductToast:'Product editing isn\'t connected yet — this list mirrors the website\'s catalog.',
@@ -410,6 +412,12 @@ const T = {
     notifUnsupported:'This browser doesn\'t support push notifications.', notifInsecure:'Open this page via the https:// link (not the downloaded file) to enable notifications.',
     notifDenied:'Notifications are blocked for this site — allow them from your browser\'s site settings, then try again.', notifBusy:'Working…',
     pushEnabledToast:'Notifications enabled', pushFailedToast:'Could not enable notifications', pushSetupNeeded:'Push isn\'t configured on the server yet (missing VAPID keys)',
+    shopWaSettings:'Shop WhatsApp Number', shopWaDesc:'The number that should receive full order details via WhatsApp — usually the phone at the shop itself.',
+    shopWaLabel:'Shop WhatsApp number (e.g. 962790101517)', shopWaSaveBtn:'Save', shopWaSavedToast:'Shop WhatsApp number saved',
+    shopWaConnected:'Set', shopWaChange:'Change number',
+    forwardToShopBtn:'Send order to shop via WhatsApp',
+    shopWaMsgTitle:'New order', shopWaMsgName:'Name', shopWaMsgPhone:'Phone', shopWaMsgAddress:'Address',
+    shopWaMsgItems:'Items', shopWaMsgTotal:'Total', shopWaMsgPayment:'Payment', shopWaMsgNotes:'Notes',
   },
   ar:{
     dir:'rtl',
@@ -439,6 +447,8 @@ const T = {
     orderItemsHead:'منتجات الطلب', subtotal:'المجموع الفرعي', delivery:'التوصيل', total:'الإجمالي', free:'مجاني',
     customerHead:'الزبون', name:'الاسم', phone:'الهاتف', payment:'طريقة الدفع', address:'العنوان', notes:'ملاحظات',
     cancelOrderTitle:'إلغاء هذا الطلب؟', cancelOrderText:'سيتم تعليم الطلب {no} كملغي.',
+    deleteOrderTitle:'حذف هذا الطلب نهائيًا؟', deleteOrderText:'رح يتم حذف الطلب {no} نهائيًا ولا يمكن التراجع عن هذا — استخدمي هذا فقط للطلبات التجريبية.',
+    deleteOrder:'حذف الطلب', deleteOrderToast:'تم حذف الطلب {no}.', deleteOrderError:'ما قدرنا نحذف الطلب — حاولي مرة ثانية.',
     cancel:'تراجع', confirm:'تأكيد',
     productsSub:'منتج (نسخة من كتالوج الموقع) ضمن', categoriesWord:'فئات',
     addProduct:'إضافة منتج', addProductToast:'تعديل المنتجات مش مربوط بعد — هاي القائمة نسخة عن كتالوج الموقع.',
@@ -474,6 +484,12 @@ const T = {
     notifUnsupported:'هالمتصفح ما بيدعم الإشعارات الفورية.', notifInsecure:'افتحي الصفحة من رابط https:// (مو الملف المحمّل) لتقدري تفعّلي الإشعارات.',
     notifDenied:'الإشعارات محظورة لهالموقع — فعّليها من إعدادات المتصفح لهالموقع وحاولي مرة ثانية.', notifBusy:'جارٍ التفعيل…',
     pushEnabledToast:'تم تفعيل الإشعارات', pushFailedToast:'تعذر تفعيل الإشعارات', pushSetupNeeded:'الإشعارات مش مفعّلة على السيرفر بعد (ناقص مفاتيح VAPID)',
+    shopWaSettings:'رقم واتساب المحل', shopWaDesc:'الرقم يلي بدك تفاصيل الطلب الكاملة توصله عبر واتساب — عادةً تلفون المحل نفسه.',
+    shopWaLabel:'رقم واتساب المحل (مثلاً 962790101517)', shopWaSaveBtn:'حفظ', shopWaSavedToast:'تم حفظ رقم واتساب المحل',
+    shopWaConnected:'محفوظ', shopWaChange:'تغيير الرقم',
+    forwardToShopBtn:'إرسال الطلب للمحل عبر واتساب',
+    shopWaMsgTitle:'طلب جديد', shopWaMsgName:'الاسم', shopWaMsgPhone:'الهاتف', shopWaMsgAddress:'العنوان',
+    shopWaMsgItems:'الأصناف', shopWaMsgTotal:'المجموع', shopWaMsgPayment:'طريقة الدفع', shopWaMsgNotes:'ملاحظات',
   },
 };
 
@@ -537,8 +553,10 @@ function statusLabel(s){ return STATUS_LABEL[lang][s] || s; }
 let ORDERS = null; // null = not loaded yet
 
 function paymentLabel(method){
-  // Only payment method live today; kept as a function so a future method
-  // (e.g. Dinarak) is a one-line addition, not a render-code change.
+  if(method === 'whatsapp') return {en:'Ordered via WhatsApp', ar:'طلب عبر واتساب'};
+  // Cash on Delivery is the only other payment method live today; kept as a
+  // function so a future method (e.g. Dinarak) is a one-line addition, not a
+  // render-code change.
   return {en:'Cash on Delivery', ar:'الدفع عند الاستلام'};
 }
 function formatOrderDate(iso){
@@ -653,6 +671,17 @@ function clearAdminKey(){
   try{ localStorage.removeItem('tb_admin_key'); }catch(e){}
 }
 
+/* Shop's own WhatsApp number — where "Send order to shop via WhatsApp"
+   forwards the full order details. Separate from the customer's number
+   (used elsewhere to contact the customer directly). Kept in this
+   browser's localStorage only, same pattern as the admin key. */
+function getShopWhatsapp(){
+  try{ return localStorage.getItem('tb_shop_whatsapp') || ''; }catch(e){ return ''; }
+}
+function setShopWhatsappValue(v){
+  try{ localStorage.setItem('tb_shop_whatsapp', v); }catch(e){}
+}
+
 async function fetchOrders(){
   const key = getAdminKey();
   if(!key) return;
@@ -683,6 +712,15 @@ async function patchFulfillment(orderId, status){
   return res.json();
 }
 
+async function deleteOrderApi(orderId){
+  const res = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(orderId)}`, {
+    method:'DELETE',
+    headers:{ 'X-Admin-Key': getAdminKey() },
+  });
+  if(!res.ok) throw new Error('delete_failed');
+  return res.json();
+}
+
 function submitAdminKey(){
   const el = document.getElementById('adminKeyInput');
   const val = el ? el.value.trim() : '';
@@ -698,6 +736,15 @@ function disconnectAdmin(){
   ORDERS = null;
   ordersError = null;
   go('dashboard');
+}
+
+function saveShopWhatsapp(){
+  const d = t();
+  const input = document.getElementById('shopWaInput');
+  if(!input) return;
+  setShopWhatsappValue(input.value.trim());
+  showToast(d.shopWaSavedToast);
+  renderApp();
 }
 
 /* =============================================================================
@@ -1104,6 +1151,28 @@ function cancelOrderConfirm(no){
   });
 }
 
+function deleteOrderConfirm(no){
+  const d = t();
+  openConfirm({
+    title:d.deleteOrderTitle,
+    text:tpl(d.deleteOrderText, {no}),
+    confirmLabel:d.deleteOrder,
+    onConfirm:()=>deleteOrderNow(no),
+  });
+}
+async function deleteOrderNow(no){
+  const d = t();
+  try{
+    await deleteOrderApi(no);
+    ORDERS = ORDERS.filter(x=>x.no!==no);
+    showToast(tpl(d.deleteOrderToast, {no}));
+    if(route.name==='orderDetail' && route.param===no){ go('orders'); }
+    else{ renderApp(); }
+  }catch(e){
+    showToast(d.deleteOrderError);
+  }
+}
+
 function waLink(phone, text){
   let digits = String(phone||'').replace(/[^0-9]/g,'');
   if(digits.startsWith('00962')) digits = digits.slice(2);
@@ -1144,6 +1213,7 @@ function renderOrderDetail(no){
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
         ${flowIdx>=0 && flowIdx<STATUS_FLOW.length-1 && o.status!=='cancelled' ? `<button class="btn btn-primary btn-sm" onclick="setOrderStatus('${o.no}','${STATUS_FLOW[flowIdx+1]}')">${d.advanceTo} "${statusLabel(STATUS_FLOW[flowIdx+1])}"</button>` : ''}
         ${o.status!=='cancelled' && o.status!=='completed' ? `<button class="btn-danger-ghost" onclick="cancelOrderConfirm('${o.no}')">${d.cancelOrder}</button>` : ''}
+        <button class="btn-danger-ghost" onclick="deleteOrderConfirm('${o.no}')">${d.deleteOrder}</button>
       </div>
     </div>
 
@@ -1408,6 +1478,14 @@ function renderSettings(){
         <h4>${d.notifSettings}</h4>
         <p style="color:var(--ink-soft);font-size:.8rem;margin:0 0 12px;">${d.notifDesc}</p>
         ${renderNotifRow(d)}
+      </div>
+      <div class="card settings-card">
+        <h4>${d.shopWaSettings}</h4>
+        <p style="color:var(--ink-soft);font-size:.8rem;margin:0 0 12px;">${d.shopWaDesc}</p>
+        ${shopWa
+          ? `<div class="settings-row"><span class="cell-muted">${shopWa}</span><span class="badge instock">${d.shopWaConnected}</span></div>
+             <div class="settings-row"><span>${d.shopWaChange}</span><input id="shopWaInput" type="tel" value="${shopWa}" placeholder="${d.shopWaLabel}" style="max-width:220px;"><button class="btn btn-primary btn-sm" onclick="saveShopWhatsapp()">${d.shopWaSaveBtn}</button></div>`
+          : `<div class="settings-row" style="flex-wrap:wrap;gap:8px;"><input id="shopWaInput" type="tel" placeholder="${d.shopWaLabel}" style="flex:1;min-width:180px;"><button class="btn btn-primary btn-sm" onclick="saveShopWhatsapp()">${d.shopWaSaveBtn}</button></div>`}
       </div>
       <div class="card settings-card">
         <h4>${d.dangerZone}</h4>
