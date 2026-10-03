@@ -209,6 +209,18 @@ async function setFulfillmentStatus(orderId, fulfillmentStatus) {
   return rowToOrder(rows[0]) || null;
 }
 
+/**
+ * Permanently deletes one order (e.g. removing test/trial orders created
+ * while setting up the store). Irreversible — there is no undo, no trash.
+ * Returns the deleted order (so the caller/route can confirm what was
+ * removed), or null if no order with that id existed.
+ */
+async function deleteOrder(orderId) {
+  const pool = db.getPool();
+  const { rows } = await pool.query(`DELETE FROM orders WHERE order_id = $1 RETURNING *`, [orderId]);
+  return rowToOrder(rows[0]) || null;
+}
+
 module.exports = {
   createOrder,
   getOrder,
@@ -219,6 +231,7 @@ module.exports = {
   markOrderPaid,
   markOrderFailed,
   setFulfillmentStatus,
+  deleteOrder,
   normalizeJordanPhone,
   FULFILLMENT_FLOW,
   FULFILLMENT_STATUSES,
