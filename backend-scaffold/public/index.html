@@ -1354,6 +1354,7 @@ const PRODUCT_IMAGES = {
   baklavaOttomanHalf: "/images/baklavaOttomanHalf2.jpg",
   baklavaPalaceHalf: "/images/baklavaPalaceHalf4.jpg",
   baklavaPalaceKg: "/images/baklavaPalaceKg3.jpg",
+  baklavaRoundTray: "/images/baklavaRoundTray.jpg",
 
   delightRoseKg: "/images/delightRoseKg.jpg",
   delightPomegranateKg: "/images/delightPomegranateKg.jpg",
@@ -1765,6 +1766,10 @@ const BAKLAVA_COLLECTIONS = [
    // Only Palace's half-kilo box is labeled by its actual packed weight (550g) —
    // Sultan's and Ottoman's half-kilo boxes keep the regular "0.5 KG" label.
    weight05En:'550g', weight05Ar:'550 غ'},
+];
+
+const BAKLAVA_STANDALONE = [
+  {cat:'baklava', en:'Round Baklava Tray (Havuş)', ar:'صينية بقلاوة دائري (هاووش)', price:47, imgKey:'baklavaRoundTray', weightEn:'2.1 KG', weightAr:'2.1 كغم', badge:'new'},
 ];
 
 const DELIGHT_FEATURED_WEIGHTED = [
@@ -2913,7 +2918,7 @@ function baklavaWeight05Ar(c){ return c.weight05Ar || T.ar.weight05; }
 function flattenBaklava(){
   const oneKg = BAKLAVA_COLLECTIONS.map(c=>({cat:'baklava', en:c.en, ar:c.ar, price:c.p1, imgKey:BAKLAVA_IMG_FOR[c.id].kg, weightEn:T.en.weight1, weightAr:T.ar.weight1, badge:c.badge}));
   const halfKg = BAKLAVA_COLLECTIONS.map(c=>({cat:'baklava', en:c.en, ar:c.ar, price:c.p05, imgKey:BAKLAVA_IMG_FOR[c.id].half, weightEn:baklavaWeight05En(c), weightAr:baklavaWeight05Ar(c), badge:c.badge}));
-  return [...oneKg, ...halfKg];
+  return [...oneKg, ...halfKg, ...BAKLAVA_STANDALONE];
 }
 function baklavaOneKg(){ return BAKLAVA_COLLECTIONS.map(c=>({cat:'baklava', en:c.en, ar:c.ar, price:c.p1, imgKey:BAKLAVA_IMG_FOR[c.id].kg, weightEn:T.en.weight1, weightAr:T.ar.weight1, badge:c.badge})); }
 function baklavaHalfKg(){ return BAKLAVA_COLLECTIONS.map(c=>({cat:'baklava', en:c.en, ar:c.ar, price:c.p05, imgKey:BAKLAVA_IMG_FOR[c.id].half, weightEn:baklavaWeight05En(c), weightAr:baklavaWeight05Ar(c), badge:c.badge})); }
@@ -2980,9 +2985,9 @@ function renderBaklavaPage(cat){
           </div>
         </div>`).join('')}
     </div>
-    ${unmatched.length ? `
+    ${(unmatched.length || BAKLAVA_STANDALONE.length) ? `
     <div class="product-grid grid-3col-mobile" style="margin-top:14px;">
-      ${unmatched.map(p=>renderProductCard('baklava', p, 0)).join('')}
+      ${[...unmatched, ...BAKLAVA_STANDALONE].map(p=>renderProductCard('baklava', p, 0)).join('')}
     </div>` : ''}
   </section>`;
 }
