@@ -1534,7 +1534,7 @@ const T = {
     cart:'Your Cart', wishlist:'Wishlist', empty:'Your cart is currently empty.',
     emptySub:'Browse our collections and add something beautiful.',
     subtotal:'Subtotal', delivery:'Delivery', total:'Total', freeAt:'Free delivery over 40 JOD',
-    deliveryPricingNote:'Irbid city 2 JOD · Irbid outskirts 3 JOD · Amman 3 JOD · Other governorates 5 JOD',
+    deliveryPricingNote:'Irbid city 2 JOD · Irbid outskirts 3 JOD · Amman 3 JOD · Other governorates 5 JOD · Branch pickup free',
     deliveryRegionLabel:'Delivery area', deliveryAmmanIrbid:'Amman & Irbid — 3 JOD', deliveryOtherGov:'Other governorates — 5 JOD',
     checkout:'Complete Order', whatsappOrder:'Send Order via WhatsApp',
     addCart:'Add to Cart', added:'Added to your cart', removed:'Removed from wishlist', savedWish:'Saved to your wishlist',
@@ -1635,7 +1635,7 @@ const T = {
     cart:'سلة التسوق', wishlist:'المفضلة', empty:'سلة التسوق فارغة حاليًا.',
     emptySub:'تصفح مجموعاتنا وأضف شيئًا جميلًا.',
     subtotal:'المجموع الفرعي', delivery:'التوصيل', total:'الإجمالي', freeAt:'توصيل مجاني فوق 40 دينار',
-    deliveryPricingNote:'إربد داخل المدينة 2 د · أطراف إربد 3 د · عمان 3 د · محافظات أخرى 5 د',
+    deliveryPricingNote:'إربد داخل المدينة 2 د · أطراف إربد 3 د · عمان 3 د · محافظات أخرى 5 د · الاستلام من الفرع مجاني',
     deliveryRegionLabel:'منطقة التوصيل', deliveryAmmanIrbid:'عمان وإربد — 3 دنانير', deliveryOtherGov:'باقي المحافظات — 5 دنانير',
     checkout:'إتمام الطلب', whatsappOrder:'إرسال الطلب عبر واتساب',
     addCart:'أضف إلى السلة', added:'تمت الإضافة إلى سلتك', removed:'تمت الإزالة من المفضلة', savedWish:'تم الحفظ في المفضلة',
@@ -2438,6 +2438,7 @@ function openCheckout(){
   closeCart(); closeSearch(); closeAccount(); closeQuickView(); toggleMobileNav(false);
   checkoutOpen = true;
   checkoutStep = 'form';
+  coDraft = {};
   document.getElementById('checkoutOverlay').classList.add('open');
   document.getElementById('checkoutModal').classList.add('open');
   lockBodyScroll();
@@ -2473,11 +2474,9 @@ function copyDinarakAmount(){
 function validateCheckoutForm(){
   const nameEl = document.getElementById('coName');
   const phoneEl = document.getElementById('coPhone');
-  const addrEl = document.getElementById('coAddress');
   const name = nameEl ? nameEl.value.trim() : '';
   const phone = phoneEl ? phoneEl.value.trim() : '';
-  const address = addrEl ? addrEl.value.trim() : '';
-  if(!name || !phone || !address){ showToast(t().requiredField); return null; }
+  if(!name || !phone){ showToast(t().requiredField); return null; }
   if(!deliveryRegionObj()){
     showToast(lang==='ar'?'يرجى اختيار منطقة التوصيل':'Please choose your delivery area');
     const dd = document.getElementById('drDropdown');
@@ -2485,10 +2484,28 @@ function validateCheckoutForm(){
     return null;
   }
   const rawNotes = (document.getElementById('coNotes')||{}).value || '';
-  const regionLabel = deliveryRegionName(deliveryRegionObj());
-  const deliveryTag = lang==='ar'
-    ? `منطقة التوصيل: ${regionLabel} (${fmtPrice(cartDelivery())})`
-    : `Delivery area: ${regionLabel} (${fmtPrice(cartDelivery())})`;
+  const region = deliveryRegionObj();
+  let address, deliveryTag;
+  if(region.pickup){
+    const brEl = document.getElementById('coBranch');
+    const br = brEl && brEl.value!=='' ? BRANCHES[Number(brEl.value)] : null;
+    if(!br){
+      showToast(lang==='ar'?'يرجى اختيار فرع الاستلام':'Please choose the pickup branch');
+      if(brEl) brEl.focus();
+      return null;
+    }
+    const brName = lang==='ar' ? br.ar : br.en;
+    address = (lang==='ar' ? 'استلام من الفرع: ' : 'Branch pickup: ') + brName;
+    deliveryTag = lang==='ar' ? `استلام من الفرع: ${brName} (بدون رسوم توصيل)` : `Branch pickup: ${brName} (no delivery fee)`;
+  } else {
+    const addrEl = document.getElementById('coAddress');
+    address = addrEl ? addrEl.value.trim() : '';
+    if(!address){ showToast(t().requiredField); return null; }
+    const regionLabel = deliveryRegionName(region);
+    deliveryTag = lang==='ar'
+      ? `منطقة التوصيل: ${regionLabel} (${fmtPrice(cartDelivery())})`
+      : `Delivery area: ${regionLabel} (${fmtPrice(cartDelivery())})`;
+  }
   const notes = [deliveryTag, rawNotes].filter(Boolean).join(' — ');
   return { name, phone, address, notes };
 }
@@ -2725,14 +2742,12 @@ function renderCheckoutModal(){
         <h3>${d.checkoutHeading}</h3>
         <div class="form-field"><label>${d.formName}</label><input id="coName" type="text" placeholder="${lang==='ar'?'اكتب اسمك':'Your full name'}"></div>
         <div class="form-field"><label>${d.formPhone}</label><input id="coPhone" type="tel" placeholder="079 000 0000"></div>
-        <p style="font-size:.78rem;color:var(--gold-dim);margin-bottom:10px;">${d.deliveryJordanNote}</p>
-        <div class="form-field"><label>${d.addressLabel}</label><textarea id="coAddress" rows="2" placeholder="${lang==='ar'?'الحي، الشارع، أقرب معلم':'Neighborhood, street, nearest landmark'}"></textarea></div>
         <div class="form-field"><label>${d.deliveryRegionLabel}</label>
           <div class="dr-dropdown ${deliveryRegionObj()?'':'dr-empty'}" id="drDropdown">
             ${deliveryRegionObj() ? `
             <button type="button" class="dr-selected" onclick="toggleDeliveryDropdown()" aria-expanded="false">
               <span class="dr-name">${deliveryRegionName(deliveryRegionObj())}</span>
-              <span class="dr-price">${fmtPrice(deliveryRegionObj().price)}</span>
+              <span class="dr-price">${regionPriceLabel(deliveryRegionObj())}</span>
               <span class="dr-arrow"></span>
             </button>` : `
             <button type="button" class="dr-selected dr-placeholder" onclick="toggleDeliveryDropdown()" aria-expanded="false">
@@ -2744,11 +2759,20 @@ function renderCheckoutModal(){
               <button type="button" class="dr-option ${r.id===deliveryRegion?'selected':''}" onclick="setDeliveryRegion('${r.id}')">
                 <span class="dr-radio"></span>
                 <span class="dr-name">${deliveryRegionName(r)}</span>
-                <span class="dr-price">${fmtPrice(r.price)}</span>
+                <span class="dr-price">${regionPriceLabel(r)}</span>
               </button>`).join('')}
             </div>
           </div>
         </div>
+        ${isPickup() ? `
+        <div class="form-field"><label>${lang==='ar'?'فرع الاستلام':'Pickup branch'}</label>
+          <select id="coBranch">
+            <option value="">${lang==='ar'?'اختر الفرع':'Choose a branch'}</option>
+            ${BRANCHES.map((br,i)=>`<option value="${i}">${lang==='ar'?br.ar:br.en}</option>`).join('')}
+          </select>
+        </div>` : `
+        <p style="font-size:.78rem;color:var(--gold-dim);margin-bottom:10px;">${d.deliveryJordanNote}</p>
+        <div class="form-field"><label>${d.addressLabel}</label><textarea id="coAddress" rows="2" placeholder="${lang==='ar'?'الحي، الشارع، أقرب معلم':'Neighborhood, street, nearest landmark'}"></textarea></div>`}
         <div class="form-field"><label>${d.notesLabel}</label><textarea id="coNotes" rows="2" placeholder="${lang==='ar'?'أي طلبات خاصة؟':'Any special requests?'}"></textarea></div>
 
         <div style="border:1px solid var(--cream-2);border-radius:12px;padding:12px;margin-bottom:12px;">
@@ -2911,14 +2935,15 @@ function renderHome(){
   `;
 }
 
+const BRANCHES = [
+  {en:'Irbid City Center', ar:'سيتي سنتر - إربد'},
+  {en:'Amman Taj Mall', ar:'تاج مول - عمّان'},
+  {en:'Amman City Mall', ar:'سيتي مول - عمّان'},
+  {en:'Amman Mecca Mall', ar:'مكة مول - عمّان'},
+];
 function renderBranchGrid(compact){
   const d=t();
-  const branches = [
-    {en:'Irbid City Center', ar:'سيتي سنتر - إربد'},
-    {en:'Amman Taj Mall', ar:'تاج مول - عمّان'},
-    {en:'Amman City Mall', ar:'سيتي مول - عمّان'},
-    {en:'Amman Mecca Mall', ar:'مكة مول - عمّان'},
-  ];
+  const branches = BRANCHES;
   return `<div class="branch-grid ${compact?'compact':''}">
     ${branches.map(b=>{
       const mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent((lang==='ar'?b.ar:b.en)+', Jordan');
@@ -3611,12 +3636,18 @@ const DELIVERY_REGIONS = [
   {id:'irbid_outskirts', ar:'أطراف إربد',        en:'Irbid — outskirts',       price:3},
   {id:'amman',           ar:'عمان',              en:'Amman',                   price:3},
   {id:'other',           ar:'محافظات أخرى',      en:'Other governorates',      price:5},
+  {id:'pickup',          ar:'استلام من الفرع',   en:'Pick up from the branch', price:0, pickup:true},
 ];
 const DELIVERY_RATES = Object.fromEntries(DELIVERY_REGIONS.map(r=>[r.id, r.price]));
 let deliveryRegion = ''; // nothing selected until the customer picks an area
 function deliveryRegionObj(id){ return DELIVERY_REGIONS.find(r=>r.id===(id||deliveryRegion)) || null; }
 function deliveryPending(){ return cart.length>0 && !deliveryRegionObj(); }
 function deliveryRegionName(r){ return lang==='ar' ? r.ar : r.en; }
+function regionPriceLabel(r){ return r.price===0 ? (lang==='ar'?'مجاني':'Free') : fmtPrice(r.price); }
+function isPickup(){ const r = deliveryRegionObj(); return !!(r && r.pickup); }
+let coDraft = {};
+function saveCheckoutDraft(){ ['coName','coPhone','coAddress','coNotes','coBranch'].forEach(id=>{ const el=document.getElementById(id); if(el) coDraft[id]=el.value; }); }
+function restoreCheckoutDraft(){ Object.keys(coDraft).forEach(id=>{ const el=document.getElementById(id); if(el) el.value = coDraft[id]; }); }
 function toggleDeliveryDropdown(){
   const dd = document.getElementById('drDropdown'); if(!dd) return;
   const open = dd.classList.toggle('open');
@@ -3626,12 +3657,10 @@ function setDeliveryRegion(v){
   if(!DELIVERY_REGIONS.some(r=>r.id===v)) v = '';
   // re-rendering the checkout would wipe what the customer already typed,
   // so keep the form values across the re-render
-  const ids = ['coName','coPhone','coAddress','coNotes'];
-  const saved = {};
-  ids.forEach(id=>{ const el=document.getElementById(id); if(el) saved[id]=el.value; });
+  saveCheckoutDraft();
   deliveryRegion = v;
   renderCheckoutModal();
-  ids.forEach(id=>{ const el=document.getElementById(id); if(el && saved[id]!==undefined) el.value = saved[id]; });
+  restoreCheckoutDraft();
 }
 function cartDelivery(){
   if(cart.length===0) return 0;
