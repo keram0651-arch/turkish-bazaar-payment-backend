@@ -644,6 +644,23 @@ footer.site::before{content:'';position:absolute;top:0;left:0;right:0;height:3px
   width:100%;padding:12px 14px;border:1px solid var(--cream-2);border-radius:10px;background:var(--white);
   font-family:var(--sans);font-size:.9rem;color:var(--ink);outline:none;transition:border-color .3s;}
 .form-field input:focus,.form-field textarea:focus,.form-field select:focus{border-color:var(--gold);}
+.dr-dropdown{border:1px solid var(--cream-2);border-radius:12px;background:var(--white);overflow:hidden;}
+.dr-selected,.dr-option{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;font:inherit;color:inherit;cursor:pointer;padding:11px 14px;text-align:start;}
+.dr-selected{font-weight:500;}
+.dr-name{flex:1;}
+.dr-price{font-family:var(--serif);color:var(--red);font-weight:600;white-space:nowrap;}
+.dr-arrow{width:8px;height:8px;border-inline-end:2px solid var(--ink-soft);border-bottom:2px solid var(--ink-soft);transform:rotate(45deg);margin-inline-start:4px;margin-top:-3px;transition:transform .25s;flex-shrink:0;}
+.dr-dropdown.open .dr-arrow{transform:rotate(-135deg);margin-top:3px;}
+.dr-dropdown.dr-empty{border-color:var(--gold);}
+.dr-placeholder .dr-name{color:var(--red);font-weight:600;}
+.dr-placeholder .dr-arrow{width:10px;height:10px;border-color:var(--red);}
+.dr-dropdown.dr-error{border-color:var(--red);box-shadow:0 0 0 3px rgba(180,40,40,.12);}
+.dr-list{display:none;border-top:1px solid var(--cream-2);}
+.dr-dropdown.open .dr-list{display:block;}
+.dr-option:hover{background:var(--cream-2);}
+.dr-radio{width:18px;height:18px;border:2px solid var(--ink-soft);border-radius:50%;flex-shrink:0;position:relative;}
+.dr-option.selected .dr-radio{border-color:var(--red);}
+.dr-option.selected .dr-radio::after{content:'';position:absolute;inset:3px;border-radius:50%;background:var(--red);}
 
 /* gallery */
 .gallery-grid{columns:2;column-gap:16px;}
@@ -1370,8 +1387,6 @@ img{
 <div class="qv-overlay" id="checkoutOverlay"></div>
 <div class="qv-modal checkout-modal" id="checkoutModal"></div>
 
-<div class="qv-overlay" id="waPhoneOverlay"></div>
-<div class="qv-modal" id="waPhoneModal"></div>
 
 <button class="wa-float" id="waFloatBtn" aria-label="WhatsApp">
   <span class="ring"></span>
@@ -1400,6 +1415,7 @@ const PRODUCT_IMAGES = {
   vinegarArtichoke: "/images/vinegarArtichoke.jpg",
   molassesPomegranate1000: "/images/molassesPomegranate1000.jpg",
   molassesPomegranate960: "/images/molassesPomegranate960.jpg",
+  delightRoyalPieces: "/images/delightRoyalPieces.webp",
   baklavaOttomanKg: "/images/baklavaOttomanKg2.jpg",
   baklavaSultanHalf: "/images/baklavaSultanHalf2.jpg",
   baklavaOttomanHalf: "/images/baklavaOttomanHalf2.jpg",
@@ -1518,7 +1534,7 @@ const T = {
     cart:'Your Cart', wishlist:'Wishlist', empty:'Your cart is currently empty.',
     emptySub:'Browse our collections and add something beautiful.',
     subtotal:'Subtotal', delivery:'Delivery', total:'Total', freeAt:'Free delivery over 40 JOD',
-    deliveryPricingNote:'Amman & Irbid 3 JOD · Other governorates 5 JOD',
+    deliveryPricingNote:'Irbid city 2 JOD · Irbid outskirts 3 JOD · Amman 3 JOD · Other governorates 5 JOD',
     deliveryRegionLabel:'Delivery area', deliveryAmmanIrbid:'Amman & Irbid — 3 JOD', deliveryOtherGov:'Other governorates — 5 JOD',
     checkout:'Complete Order', whatsappOrder:'Send Order via WhatsApp',
     addCart:'Add to Cart', added:'Added to your cart', removed:'Removed from wishlist', savedWish:'Saved to your wishlist',
@@ -1619,7 +1635,7 @@ const T = {
     cart:'سلة التسوق', wishlist:'المفضلة', empty:'سلة التسوق فارغة حاليًا.',
     emptySub:'تصفح مجموعاتنا وأضف شيئًا جميلًا.',
     subtotal:'المجموع الفرعي', delivery:'التوصيل', total:'الإجمالي', freeAt:'توصيل مجاني فوق 40 دينار',
-    deliveryPricingNote:'عمان وإربد 3 دنانير · باقي المحافظات 5 دنانير',
+    deliveryPricingNote:'إربد داخل المدينة 2 د · أطراف إربد 3 د · عمان 3 د · محافظات أخرى 5 د',
     deliveryRegionLabel:'منطقة التوصيل', deliveryAmmanIrbid:'عمان وإربد — 3 دنانير', deliveryOtherGov:'باقي المحافظات — 5 دنانير',
     checkout:'إتمام الطلب', whatsappOrder:'إرسال الطلب عبر واتساب',
     addCart:'أضف إلى السلة', added:'تمت الإضافة إلى سلتك', removed:'تمت الإزالة من المفضلة', savedWish:'تم الحفظ في المفضلة',
@@ -1841,8 +1857,9 @@ const DELIGHT_FEATURED_WEIGHTED = [
 ];
 
 const DELIGHT_STANDALONE = [
-  {cat:'delight', en:'Biscuit Delight', ar:'راحة بالبسكوت', price:12, imgKey:'delightBiscuit', sampleImgKey:'delightBiscuitSample', weightEn:'Box', weightAr:'علبة', badge:'new',
+  {cat:'delight', en:'Biscuit Delight', ar:'راحة بالبسكوت', price:11, imgKey:'delightBiscuit', sampleImgKey:'delightBiscuitSample', weightEn:'Box', weightAr:'علبة', badge:'new',
    shortDescEn:'Turkish delight layered with crunchy biscuit', shortDescAr:'راحة تركية مع البسكوت المقرمش'},
+  {cat:'delight', en:'Royal Delight (Pieces)', ar:'راحة ملوكي قطع', price:12.50, imgKey:'delightRoyalPieces', weightEn:'370g', weightAr:'370 غ'},
 ];
 
 function delightFeaturedOneKg(){ return DELIGHT_FEATURED_WEIGHTED.map(c=>({cat:'delight', en:c.en, ar:c.ar, price:c.p1, imgKey:c.imgKeyKg, sampleImgKey:c.sampleImgKey, weightEn:c.weight1En||T.en.weight1, weightAr:c.weight1Ar||T.ar.weight1, badge:c.badge, shortDescEn:c.shortDescEn, shortDescAr:c.shortDescAr})); }
@@ -1865,7 +1882,7 @@ const GENERIC_PRODUCTS = {
   {en:'Round Baklava Tray (Havuş)', ar:'صينية بقلاوة دائري (هاووش)', price:47, imgKey:'baklavaRoundTray', weightEn:'2.1 KG', weightAr:'2.1 كغم', badge:'new'},
   {en:'Midye Baklava Round Tray', ar:'صينية بقلاوة ميدت دائرية', price:52.80, imgKey:'baklavaMidye', weightEn:'2.4 KG', weightAr:'2.4 كغم', badge:'new'},
   {en:'Classic Baklava Rectangular Tray', ar:'صينية بقلاوة كلاسيك مستطيلة', price:52.80, imgKey:'baklavaClassicTray', weightEn:'2.4 KG', weightAr:'2.4 كغم', badge:'new'},
-  {en:'Sarma Baklava Tray', ar:'صينية بقلاوة صارما', price:48.50, imgKey:'baklavaSarma', weightEn:'2.7 KG', weightAr:'2.7 كغم', badge:'new'},
+  {en:'Sarma Baklava Tray', ar:'صينية بقلاوة صارما', price:64, imgKey:'baklavaSarma', weightEn:'2.7 KG', weightAr:'2.7 كغم', badge:'new'},
   ],
   chocolate:[
     {en:'Turkish Bazaar Signature Chocolate Box',ar:'علبة شوكولاتة تركية مميزة',price:30,imgKey:'chocolateGiftBox',weightEn:'Gift Box',weightAr:'علبة هدايا'},
@@ -1933,7 +1950,7 @@ const GENERIC_PRODUCTS = {
   ],
   molasses:[
     {en:'Pomegranate Molasses',ar:'دبس رمان',price:8,imgKey:'molassesPomegranate1000',weightEn:'1000g',weightAr:'1000غ'},
-    {en:'Pomegranate Molasses',ar:'دبس رمان',price:7,imgKey:'molassesPomegranate960',weightEn:'960g',weightAr:'960غ'},
+    {en:'Pomegranate Molasses',ar:'دبس رمان',price:5,imgKey:'molassesPomegranate1000',weightEn:'500g',weightAr:'500غ'},
   ],
   tomato:[
   ],
@@ -2461,10 +2478,14 @@ function validateCheckoutForm(){
   const phone = phoneEl ? phoneEl.value.trim() : '';
   const address = addrEl ? addrEl.value.trim() : '';
   if(!name || !phone || !address){ showToast(t().requiredField); return null; }
+  if(!deliveryRegionObj()){
+    showToast(lang==='ar'?'يرجى اختيار منطقة التوصيل':'Please choose your delivery area');
+    const dd = document.getElementById('drDropdown');
+    if(dd){ dd.classList.add('open','dr-error'); dd.scrollIntoView({behavior:'smooth', block:'center'}); }
+    return null;
+  }
   const rawNotes = (document.getElementById('coNotes')||{}).value || '';
-  const regionLabel = deliveryRegion==='other'
-    ? (lang==='ar'?'باقي المحافظات':'Other governorates')
-    : (lang==='ar'?'عمان وإربد':'Amman & Irbid');
+  const regionLabel = deliveryRegionName(deliveryRegionObj());
   const deliveryTag = lang==='ar'
     ? `منطقة التوصيل: ${regionLabel} (${fmtPrice(cartDelivery())})`
     : `Delivery area: ${regionLabel} (${fmtPrice(cartDelivery())})`;
@@ -2707,10 +2728,26 @@ function renderCheckoutModal(){
         <p style="font-size:.78rem;color:var(--gold-dim);margin-bottom:10px;">${d.deliveryJordanNote}</p>
         <div class="form-field"><label>${d.addressLabel}</label><textarea id="coAddress" rows="2" placeholder="${lang==='ar'?'الحي، الشارع، أقرب معلم':'Neighborhood, street, nearest landmark'}"></textarea></div>
         <div class="form-field"><label>${d.deliveryRegionLabel}</label>
-          <select id="coDeliveryRegion" onchange="setDeliveryRegion(this.value)">
-            <option value="amman_irbid" ${deliveryRegion==='amman_irbid'?'selected':''}>${d.deliveryAmmanIrbid}</option>
-            <option value="other" ${deliveryRegion==='other'?'selected':''}>${d.deliveryOtherGov}</option>
-          </select>
+          <div class="dr-dropdown ${deliveryRegionObj()?'':'dr-empty'}" id="drDropdown">
+            ${deliveryRegionObj() ? `
+            <button type="button" class="dr-selected" onclick="toggleDeliveryDropdown()" aria-expanded="false">
+              <span class="dr-name">${deliveryRegionName(deliveryRegionObj())}</span>
+              <span class="dr-price">${fmtPrice(deliveryRegionObj().price)}</span>
+              <span class="dr-arrow"></span>
+            </button>` : `
+            <button type="button" class="dr-selected dr-placeholder" onclick="toggleDeliveryDropdown()" aria-expanded="false">
+              <span class="dr-name">${lang==='ar'?'اختر منطقة التوصيل من هنا':'Choose your delivery area here'}</span>
+              <span class="dr-arrow"></span>
+            </button>`}
+            <div class="dr-list">
+              ${DELIVERY_REGIONS.map(r=>`
+              <button type="button" class="dr-option ${r.id===deliveryRegion?'selected':''}" onclick="setDeliveryRegion('${r.id}')">
+                <span class="dr-radio"></span>
+                <span class="dr-name">${deliveryRegionName(r)}</span>
+                <span class="dr-price">${fmtPrice(r.price)}</span>
+              </button>`).join('')}
+            </div>
+          </div>
         </div>
         <div class="form-field"><label>${d.notesLabel}</label><textarea id="coNotes" rows="2" placeholder="${lang==='ar'?'أي طلبات خاصة؟':'Any special requests?'}"></textarea></div>
 
@@ -2730,7 +2767,7 @@ function renderCheckoutModal(){
         <div class="co-divider"></div>
         <div class="co-line"><span>${d.subtotal}</span><b>${fmtPrice(cartSubtotal())}</b></div>
         ${cartDiscount()>0 ? `<div class="co-line" style="color:var(--red);"><span>${lang==='ar'?`خصم ${SITE_DISCOUNT_PERCENT}% (بقلاوة وحلقوم)`:`Discount ${SITE_DISCOUNT_PERCENT}% (baklava & delight)`}</span><b>-${fmtPrice(cartDiscount())}</b></div>` : ''}
-        <div class="co-line"><span>${d.delivery}</span><b>${cartDelivery()===0?(lang==='ar'?'مجاني':'Free'):fmtPrice(cartDelivery())}</b></div>
+        <div class="co-line"><span>${d.delivery}</span><b>${deliveryPending()?(lang==='ar'?'حسب المنطقة':'Depends on area'):(cartDelivery()===0?(lang==='ar'?'مجاني':'Free'):fmtPrice(cartDelivery()))}</b></div>
         <div class="co-divider"></div>
         <div class="co-line" style="font-size:1rem;"><span>${d.total}</span><b style="color:var(--red);font-family:var(--serif);font-size:1.15rem;">${fmtPrice(cartTotal())}</b></div>
       </div>
@@ -3567,18 +3604,38 @@ function cartSubtotal(){ return cart.reduce((s,l)=>s+l.price*l.qty,0); }
 function discountEligibleSubtotal(){ return cart.filter(l=>DISCOUNT_CATEGORIES.includes(l.cat)).reduce((s,l)=>s+l.price*l.qty,0); }
 function cartDiscount(){ return SITE_DISCOUNT_PERCENT>0 ? discountEligibleSubtotal()*(SITE_DISCOUNT_PERCENT/100) : 0; }
 function cartSubtotalAfterDiscount(){ return cartSubtotal()-cartDiscount(); }
-// Delivery pricing: two flat regional tiers, chosen by the customer at
-// checkout (the "delivery area" dropdown, next to the address field) —
-// replaces the old flat/free-over-40 rule with the merchant's real policy.
-const DELIVERY_RATES = { amman_irbid: 3, other: 5 };
-let deliveryRegion = 'amman_irbid'; // default selection shown in the checkout form
+// Delivery pricing: flat price per delivery area, chosen by the customer in
+// the checkout form (a dropdown with a radio circle + price next to each area).
+const DELIVERY_REGIONS = [
+  {id:'irbid_city',      ar:'إربد داخل المدينة', en:'Irbid — inside the city', price:2},
+  {id:'irbid_outskirts', ar:'أطراف إربد',        en:'Irbid — outskirts',       price:3},
+  {id:'amman',           ar:'عمان',              en:'Amman',                   price:3},
+  {id:'other',           ar:'محافظات أخرى',      en:'Other governorates',      price:5},
+];
+const DELIVERY_RATES = Object.fromEntries(DELIVERY_REGIONS.map(r=>[r.id, r.price]));
+let deliveryRegion = ''; // nothing selected until the customer picks an area
+function deliveryRegionObj(id){ return DELIVERY_REGIONS.find(r=>r.id===(id||deliveryRegion)) || null; }
+function deliveryPending(){ return cart.length>0 && !deliveryRegionObj(); }
+function deliveryRegionName(r){ return lang==='ar' ? r.ar : r.en; }
+function toggleDeliveryDropdown(){
+  const dd = document.getElementById('drDropdown'); if(!dd) return;
+  const open = dd.classList.toggle('open');
+  const btn = dd.querySelector('.dr-selected'); if(btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
 function setDeliveryRegion(v){
-  deliveryRegion = (v === 'other') ? 'other' : 'amman_irbid';
+  if(!DELIVERY_REGIONS.some(r=>r.id===v)) v = '';
+  // re-rendering the checkout would wipe what the customer already typed,
+  // so keep the form values across the re-render
+  const ids = ['coName','coPhone','coAddress','coNotes'];
+  const saved = {};
+  ids.forEach(id=>{ const el=document.getElementById(id); if(el) saved[id]=el.value; });
+  deliveryRegion = v;
   renderCheckoutModal();
+  ids.forEach(id=>{ const el=document.getElementById(id); if(el && saved[id]!==undefined) el.value = saved[id]; });
 }
 function cartDelivery(){
   if(cart.length===0) return 0;
-  return DELIVERY_RATES[deliveryRegion] ?? DELIVERY_RATES.amman_irbid;
+  return DELIVERY_RATES[deliveryRegion] ?? 0;
 }
 function cartTotal(){ return cartSubtotalAfterDiscount()+cartDelivery(); }
 
@@ -3634,7 +3691,7 @@ function renderCartDrawer(){
     <div class="drawer-foot">
       <div class="tot-row"><span>${d.subtotal}</span><span>${fmtPrice(cartSubtotal())}</span></div>
       ${cartDiscount()>0 ? `<div class="tot-row" style="color:var(--red);"><span>${lang==='ar'?`خصم ${SITE_DISCOUNT_PERCENT}% (بقلاوة وحلقوم)`:`Discount ${SITE_DISCOUNT_PERCENT}% (baklava & delight)`}</span><span>-${fmtPrice(cartDiscount())}</span></div>` : ''}
-      <div class="tot-row"><span>${d.delivery}</span><span>${cartDelivery()===0?(lang==='ar'?'مجاني':'Free'):fmtPrice(cartDelivery())}</span></div>
+      <div class="tot-row"><span>${d.delivery}</span><span>${deliveryPending()?(lang==='ar'?'حسب المنطقة':'Depends on area'):(cartDelivery()===0?(lang==='ar'?'مجاني':'Free'):fmtPrice(cartDelivery()))}</span></div>
       <div class="tot-row" style="font-size:.72rem;">${d.deliveryPricingNote}</div>
       <div class="tot-row grand"><span>${d.total}</span><b>${fmtPrice(cartTotal())}</b></div>
       <div class="drawer-actions">
@@ -3649,7 +3706,8 @@ function buildWhatsAppOrderLink(orderId){
   const lines = cart.map(l=> `- ${lang==='ar'?l.nameAr:l.nameEn} ${lang==='ar'?(l.weightAr||''):(l.weight||'')} x${l.qty} — ${fmtPrice(l.price*l.qty)}`);
   const header = lang==='ar' ? 'مرحبًا، أرغب بطلب التالي من القرية التركية:' : 'Hello, I would like to order the following from Turkish Bazaar:';
   const orderLine = orderId ? (lang==='ar'?`رقم الطلب: #${orderId}`:`Order #${orderId}`) : '';
-  const totalLine = (lang==='ar'?'الإجمالي: ':'Total: ') + fmtPrice(cartTotal());
+  const noDel = !deliveryRegionObj();
+  const totalLine = (lang==='ar'?(noDel?'الإجمالي (بدون التوصيل): ':'الإجمالي: '):(noDel?'Total (excluding delivery): ':'Total: ')) + fmtPrice(cartTotal());
   const msg = [header, orderLine, '', ...lines, '', totalLine].filter(Boolean).join('\n');
   return `https://wa.me/${SOCIAL.whatsapp1}?text=${encodeURIComponent(msg)}`;
 }
@@ -3659,50 +3717,13 @@ function buildWhatsAppOrderLink(orderId){
 // triggers the merchant's WhatsApp/push notification, before opening the
 // WhatsApp chat itself.
 //
-// IMPORTANT: this button now asks for the customer's phone number FIRST
-// (openWaPhonePrompt → confirmWaPhoneAndSend), unlike the old version which
-// saved the order with a blank phone number. Reason: opening a wa.me link
-// only PRE-FILLS a WhatsApp message — the customer still has to press Send
-// themselves inside WhatsApp. If they close the app or never press Send,
-// the order was already recorded in the admin panel but with no way to
-// reach that customer at all (an order that's effectively lost). Requiring
-// the phone number up front means every WhatsApp-path order stays
-// reachable even when the WhatsApp message itself never arrives.
+// NOTE: there is no phone-number prompt — the button records the order
+// (without a phone number) and opens the WhatsApp chat immediately.
 function sendOrderViaWhatsApp(){
   if(cart.length===0){ showToast(lang==='ar'?'سلتك فارغة':'Your cart is empty'); return; }
   finishWhatsAppOrder('');
 }
 
-function openWaPhonePrompt(){
-  document.getElementById('waPhoneOverlay').classList.add('open');
-  document.getElementById('waPhoneModal').classList.add('open');
-  lockBodyScroll();
-  renderWaPhoneModal();
-  setTimeout(()=>{ const el=document.getElementById('waPhoneInput'); if(el) el.focus(); }, 50);
-}
-function closeWaPhonePrompt(){
-  document.getElementById('waPhoneOverlay').classList.remove('open');
-  document.getElementById('waPhoneModal').classList.remove('open');
-  unlockBodyScroll();
-}
-function renderWaPhoneModal(){
-  const modal = document.getElementById('waPhoneModal');
-  if(!modal) return;
-  modal.innerHTML = `
-    <div class="qv-card" style="max-width:420px;">
-      <button class="qv-close" onclick="closeWaPhonePrompt()">${ICONS.close}</button>
-      <h3 style="margin-bottom:6px;">${lang==='ar'?'رقم موبايلك':'Your phone number'}</h3>
-      <p style="font-size:.78rem;color:var(--ink-soft);margin-bottom:14px;">${lang==='ar'?'عشان نقدر نتواصل معك لو ما وصلتنا رسالة الواتساب.':"So we can reach you if the WhatsApp message doesn't come through."}</p>
-      <div class="form-field"><input id="waPhoneInput" type="tel" placeholder="079 000 0000" onkeydown="if(event.key==='Enter')confirmWaPhoneAndSend()"></div>
-      <button class="btn btn-primary" style="width:100%;margin-top:6px;" onclick="confirmWaPhoneAndSend()">${lang==='ar'?'متابعة لواتساب':'Continue to WhatsApp'}</button>
-    </div>`;
-}
-function confirmWaPhoneAndSend(){
-  const el = document.getElementById('waPhoneInput');
-  const phone = el ? el.value.trim() : '';
-  closeWaPhonePrompt();
-  finishWhatsAppOrder(phone);
-}
 function finishWhatsAppOrder(phone){
   const orderId = generateOrderId();
   const waLink = buildWhatsAppOrderLink(orderId);
@@ -3964,8 +3985,6 @@ document.getElementById('qvOverlay').addEventListener('click', closeQuickView);
 document.getElementById('checkoutOverlay').addEventListener('click', closeCheckout);
 document.getElementById('qvModal').addEventListener('click', (e)=>{ if(e.target.id==='qvModal') closeQuickView(); });
 document.getElementById('checkoutModal').addEventListener('click', (e)=>{ if(e.target.id==='checkoutModal') closeCheckout(); });
-document.getElementById('waPhoneOverlay').addEventListener('click', closeWaPhonePrompt);
-document.getElementById('waPhoneModal').addEventListener('click', (e)=>{ if(e.target.id==='waPhoneModal') closeWaPhonePrompt(); });
 
 function lockBodyScroll(){ document.body.style.overflow = 'hidden'; }
 function unlockBodyScroll(){ document.body.style.overflow = ''; }
