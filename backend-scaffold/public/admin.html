@@ -2,7 +2,8 @@
 <html lang="en" dir="ltr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#4E0F1B">
 <title>Turkish Bazaar — Admin (Prototype)</title>
 <!-- Makes "Add to Home Screen" on iOS launch this as a standalone app
      (hides Safari's address bar) instead of a plain bookmark — required for
@@ -89,7 +90,7 @@ img{max-width:100%;display:block;}
 
 .content{padding:24px;max-width:1400px;width:100%;margin:0 auto;flex:1;}
 
-@media(max-width:960px){
+@media(max-width:960px), (pointer:coarse) and (max-device-width:1024px){
   .sidebar{transform:translateX(-100%);}
   [dir="rtl"] .sidebar{transform:translateX(100%);}
   .sidebar.open{transform:translateX(0);}
@@ -296,6 +297,31 @@ table.admin-table tbody tr:hover{background:var(--cream-2);}
 .settings-row:last-child{border-bottom:none;}
 
 .empty-note{text-align:center;padding:50px 20px;color:var(--ink-soft);font-size:.86rem;}
+
+/* ---------- phone / app hardening ---------- */
+[dir="ltr"] .sidebar{left:0;}
+[dir="rtl"] .sidebar{right:0;}
+.admin-shell,.main-area{min-height:100dvh;}
+.sidebar{padding-top:env(safe-area-inset-top,0px);}
+.topbar{padding-top:calc(14px + env(safe-area-inset-top,0px));}
+#toast{bottom:calc(24px + env(safe-area-inset-bottom,0px));}
+.content{padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));}
+@media(max-width:640px){
+  input,select,textarea{font-size:16px;}
+  .search-input{min-width:0;flex:1 1 100%;}
+  .toolbar{gap:8px;}
+  .page-head h2{font-size:1.25rem;}
+  /* tables become one card per row instead of a wide, side-scrolling table */
+  .table-wrap{overflow-x:visible;}
+  table.admin-table{min-width:0;display:block;}
+  table.admin-table thead{display:none;}
+  table.admin-table tbody{display:block;}
+  table.admin-table tbody tr{display:block;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:10px;padding:6px 12px;background:var(--white);}
+  table.admin-table td{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--cream-2);text-align:end;}
+  table.admin-table tr td:last-child{border-bottom:none;}
+  table.admin-table td::before{content:attr(data-label);color:var(--ink-faint);font-size:.7rem;font-weight:600;text-align:start;flex-shrink:0;}
+}
+.install-hint{font-size:.78rem;color:var(--ink-soft);line-height:1.6;margin:0;}
 </style>
 </head>
 <body>
@@ -412,6 +438,7 @@ const T = {
     notifUnsupported:'This browser doesn\'t support push notifications.', notifInsecure:'Open this page via the https:// link (not the downloaded file) to enable notifications.',
     notifDenied:'Notifications are blocked for this site — allow them from your browser\'s site settings, then try again.', notifBusy:'Working…',
     pushEnabledToast:'Notifications enabled', pushFailedToast:'Could not enable notifications', pushSetupNeeded:'Push isn\'t configured on the server yet (missing VAPID keys)',
+    installTitle:'Install as an app', installDesc:'Add the panel to this phone\'s home screen so it opens full-screen like an app. Do this first, then enable notifications below.', installBtn:'Install app', installedBadge:'Installed on this device', installHow:'Android (Chrome): menu ⋮ → Install app / Add to Home screen.  iPhone (Safari): Share → Add to Home Screen.',
     shopWaSettings:'Shop WhatsApp Number', shopWaDesc:'The number that should receive full order details via WhatsApp — usually the phone at the shop itself.',
     shopWaLabel:'Shop WhatsApp number (e.g. 962790101517)', shopWaSaveBtn:'Save', shopWaSavedToast:'Shop WhatsApp number saved',
     shopWaConnected:'Set', shopWaChange:'Change number',
@@ -484,6 +511,7 @@ const T = {
     notifUnsupported:'هالمتصفح ما بيدعم الإشعارات الفورية.', notifInsecure:'افتحي الصفحة من رابط https:// (مو الملف المحمّل) لتقدري تفعّلي الإشعارات.',
     notifDenied:'الإشعارات محظورة لهالموقع — فعّليها من إعدادات المتصفح لهالموقع وحاولي مرة ثانية.', notifBusy:'جارٍ التفعيل…',
     pushEnabledToast:'تم تفعيل الإشعارات', pushFailedToast:'تعذر تفعيل الإشعارات', pushSetupNeeded:'الإشعارات مش مفعّلة على السيرفر بعد (ناقص مفاتيح VAPID)',
+    installTitle:'تثبيت كتطبيق', installDesc:'ضيفي اللوحة على الشاشة الرئيسية للتلفون عشان تفتح كتطبيق بكامل الشاشة. اعمليها أول شي، وبعدين فعّلي الإشعارات من تحت.', installBtn:'تثبيت التطبيق', installedBadge:'مثبّت على هالجهاز', installHow:'أندرويد (Chrome): القائمة ⋮ ← تثبيت التطبيق / إضافة إلى الشاشة الرئيسية.  آيفون (Safari): مشاركة ← إضافة إلى الشاشة الرئيسية.',
     shopWaSettings:'رقم واتساب المحل', shopWaDesc:'الرقم يلي بدك تفاصيل الطلب الكاملة توصله عبر واتساب — عادةً تلفون المحل نفسه.',
     shopWaLabel:'رقم واتساب المحل (مثلاً 962790101517)', shopWaSaveBtn:'حفظ', shopWaSavedToast:'تم حفظ رقم واتساب المحل',
     shopWaConnected:'محفوظ', shopWaChange:'تغيير الرقم',
@@ -1440,6 +1468,36 @@ function exportOrdersCsv(){
   URL.revokeObjectURL(url);
 }
 
+let deferredInstallPrompt = null;
+function isStandaloneApp(){
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+}
+window.addEventListener('beforeinstallprompt', (e)=>{
+  e.preventDefault(); deferredInstallPrompt = e;
+  if(route.name==='settings') renderApp();
+});
+window.addEventListener('appinstalled', ()=>{ deferredInstallPrompt = null; if(route.name==='settings') renderApp(); });
+async function installApp(){
+  if(!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  try{ await deferredInstallPrompt.userChoice; }catch(e){}
+  deferredInstallPrompt = null;
+  renderApp();
+}
+function renderInstallRow(d){
+  if(isStandaloneApp()) return `<div class="settings-row"><span class="badge instock">${d.installedBadge}</span></div>`;
+  if(deferredInstallPrompt) return `<div class="settings-row"><span class="cell-muted">${d.installHow.split('  ')[0]}</span><button class="btn btn-primary btn-sm" onclick="installApp()">${d.installBtn}</button></div>`;
+  return `<p class="install-hint">${d.installHow.split('  ').join('<br>')}</p>`;
+}
+// on phones the tables render as cards; each cell needs its column title
+function labelTables(){
+  document.querySelectorAll('table.admin-table').forEach(tb=>{
+    const heads = [...tb.querySelectorAll('thead th')].map(h=>h.textContent.trim());
+    tb.querySelectorAll('tbody tr').forEach(tr=>{
+      [...tr.children].forEach((td,i)=>{ if(heads[i]) td.setAttribute('data-label', heads[i]); });
+    });
+  });
+}
 function renderNotifRow(d){
   if(pushStatus==='unsupported') return `<div class="settings-row"><span class="cell-muted">${d.notifUnsupported}</span></div>`;
   if(pushStatus==='insecure') return `<div class="settings-row"><span class="cell-muted">${d.notifInsecure}</span></div>`;
@@ -1450,6 +1508,7 @@ function renderNotifRow(d){
 }
 function renderSettings(){
   const d = t();
+  const shopWa = getShopWhatsapp();
   const key = getAdminKey();
   const masked = key ? (key.slice(0,4) + '•'.repeat(Math.max(0,key.length-4))) : '';
   document.getElementById('content').innerHTML = `
@@ -1473,6 +1532,11 @@ function renderSettings(){
         <h4>${d.adminKeySettings}</h4>
         <div class="settings-row"><span class="cell-muted">${masked}</span><span class="badge instock">${d.adminKeyConnected}</span></div>
         <div class="settings-row"><span>${d.adminKeyChange}</span><button class="btn-danger-ghost" onclick="disconnectAdmin()">${d.adminKeyDisconnect}</button></div>
+      </div>
+      <div class="card settings-card">
+        <h4>${d.installTitle}</h4>
+        <p style="color:var(--ink-soft);font-size:.8rem;margin:0 0 12px;">${d.installDesc}</p>
+        ${renderInstallRow(d)}
       </div>
       <div class="card settings-card">
         <h4>${d.notifSettings}</h4>
@@ -1544,6 +1608,7 @@ function renderApp(){
     pageContent();
   }
   if(confirmAction) renderConfirmModal();
+  labelTables();
 }
 
 document.getElementById('sidebarOverlay').addEventListener('click', ()=>{ sidebarOpen=false; renderSidebar(); });
