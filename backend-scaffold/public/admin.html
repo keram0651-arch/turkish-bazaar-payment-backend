@@ -311,17 +311,53 @@ table.admin-table tbody tr:hover{background:var(--cream-2);}
   .search-input{min-width:0;flex:1 1 100%;}
   .toolbar{gap:8px;}
   .page-head h2{font-size:1.25rem;}
-  /* tables become one card per row instead of a wide, side-scrolling table */
-  .table-wrap{overflow-x:visible;}
-  table.admin-table{min-width:0;display:block;}
-  table.admin-table thead{display:none;}
-  table.admin-table tbody{display:block;}
-  table.admin-table tbody tr{display:block;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:10px;padding:6px 12px;background:var(--white);}
-  table.admin-table td{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--cream-2);text-align:end;}
-  table.admin-table tr td:last-child{border-bottom:none;}
-  table.admin-table td::before{content:attr(data-label);color:var(--ink-faint);font-size:.7rem;font-weight:600;text-align:start;flex-shrink:0;}
 }
 .install-hint{font-size:.78rem;color:var(--ink-soft);line-height:1.6;margin:0;}
+
+/* ---------- orders list: one compact row per order ---------- */
+.order-legend{display:flex;flex-wrap:wrap;gap:16px;font-size:.74rem;color:var(--ink-soft);margin:0 0 10px;}
+.order-legend span{display:inline-flex;align-items:center;gap:6px;}
+.order-row{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--red);cursor:pointer;}
+.order-row:last-child{border-bottom:none;}
+.order-row:hover{background:rgba(0,0,0,.03);}
+.od-dot{display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.od-dot-new{background:#2E9B57;box-shadow:0 0 0 3px rgba(46,155,87,.18);}
+.od-dot-old{background:var(--red);}
+.od-name{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.od-type{font-size:.72rem;color:var(--ink-faint);white-space:nowrap;max-width:34%;overflow:hidden;text-overflow:ellipsis;}
+.od-total{font-weight:700;white-space:nowrap;}
+.order-row.is-old .od-name,.order-row.is-old .od-type,.order-row.is-old .od-total{opacity:.6;}
+
+/* keep wide tables scrolling inside their own box instead of widening the whole page */
+.admin-shell>*,.main-area,.content,.card,.table-wrap{min-width:0;}
+.table-wrap{max-width:100%;-webkit-overflow-scrolling:touch;}
+
+/* thin red line between orders (and under the table heading) */
+table.admin-table th{border-bottom:1px solid var(--red);}
+table.admin-table td{border-bottom:1px solid var(--red);}
+table.admin-table tr:last-child td{border-bottom:none;}
+
+/* on phones the red side menu is completely hidden unless it is opened,
+   and it slides to the correct side for both English and Arabic */
+@media(max-width:960px), (pointer:coarse) and (max-device-width:1024px){
+  .sidebar{max-width:85vw;visibility:hidden;transition:transform .35s cubic-bezier(.16,1,.3,1), visibility 0s linear .35s;}
+  [dir="ltr"] .sidebar{transform:translateX(-105%);}
+  [dir="rtl"] .sidebar{transform:translateX(105%);}
+  .sidebar.open,[dir="ltr"] .sidebar.open,[dir="rtl"] .sidebar.open{transform:translateX(0);visibility:visible;transition:transform .35s cubic-bezier(.16,1,.3,1), visibility 0s;}
+}
+/* hardening: a closed menu can never cover or block the screen, and never widens the page (RTL/iOS) */
+@media(max-width:960px), (pointer:coarse) and (max-device-width:1024px){
+  html,body{overflow-x:hidden;max-width:100%;}
+  .sidebar{pointer-events:none;}
+  .sidebar.open{pointer-events:auto;}
+  .sidebar-overlay{z-index:55;}
+}
+/* orders: today's = clear + green dot, older = lightly dimmed (still readable) + red dot */
+.order-row.is-old{background:rgba(0,0,0,.025);}
+.order-row.is-old .od-name,.order-row.is-old .od-type,.order-row.is-old .od-total{opacity:.72;}
+.order-row.is-recent .od-name,.order-row.is-recent .od-total{opacity:1;}
+/* no sliding animation while the language (and so the direction) is switching */
+.no-anim .sidebar{transition:none !important;}
 </style>
 </head>
 <body>
@@ -438,7 +474,7 @@ const T = {
     notifUnsupported:'This browser doesn\'t support push notifications.', notifInsecure:'Open this page via the https:// link (not the downloaded file) to enable notifications.',
     notifDenied:'Notifications are blocked for this site — allow them from your browser\'s site settings, then try again.', notifBusy:'Working…',
     pushEnabledToast:'Notifications enabled', pushFailedToast:'Could not enable notifications', pushSetupNeeded:'Push isn\'t configured on the server yet (missing VAPID keys)',
-    installTitle:'Install as an app', installDesc:'Add the panel to this phone\'s home screen so it opens full-screen like an app. Do this first, then enable notifications below.', installBtn:'Install app', installedBadge:'Installed on this device', installHow:'Android (Chrome): menu ⋮ → Install app / Add to Home screen.  iPhone (Safari): Share → Add to Home Screen.',
+    legendRecent:'Last 24 hours', legendOld:'Older than 24 hours', installTitle:'Install as an app', installDesc:'Add the panel to this phone\'s home screen so it opens full-screen like an app. Do this first, then enable notifications below.', installBtn:'Install app', installedBadge:'Installed on this device', installHow:'Android (Chrome): menu ⋮ → Install app / Add to Home screen.  iPhone (Safari): Share → Add to Home Screen.',
     shopWaSettings:'Shop WhatsApp Number', shopWaDesc:'The number that should receive full order details via WhatsApp — usually the phone at the shop itself.',
     shopWaLabel:'Shop WhatsApp number (e.g. 962790101517)', shopWaSaveBtn:'Save', shopWaSavedToast:'Shop WhatsApp number saved',
     shopWaConnected:'Set', shopWaChange:'Change number',
@@ -511,7 +547,7 @@ const T = {
     notifUnsupported:'هالمتصفح ما بيدعم الإشعارات الفورية.', notifInsecure:'افتحي الصفحة من رابط https:// (مو الملف المحمّل) لتقدري تفعّلي الإشعارات.',
     notifDenied:'الإشعارات محظورة لهالموقع — فعّليها من إعدادات المتصفح لهالموقع وحاولي مرة ثانية.', notifBusy:'جارٍ التفعيل…',
     pushEnabledToast:'تم تفعيل الإشعارات', pushFailedToast:'تعذر تفعيل الإشعارات', pushSetupNeeded:'الإشعارات مش مفعّلة على السيرفر بعد (ناقص مفاتيح VAPID)',
-    installTitle:'تثبيت كتطبيق', installDesc:'ضيفي اللوحة على الشاشة الرئيسية للتلفون عشان تفتح كتطبيق بكامل الشاشة. اعمليها أول شي، وبعدين فعّلي الإشعارات من تحت.', installBtn:'تثبيت التطبيق', installedBadge:'مثبّت على هالجهاز', installHow:'أندرويد (Chrome): القائمة ⋮ ← تثبيت التطبيق / إضافة إلى الشاشة الرئيسية.  آيفون (Safari): مشاركة ← إضافة إلى الشاشة الرئيسية.',
+    legendRecent:'خلال آخر 24 ساعة', legendOld:'أقدم من 24 ساعة', installTitle:'تثبيت كتطبيق', installDesc:'ضيفي اللوحة على الشاشة الرئيسية للتلفون عشان تفتح كتطبيق بكامل الشاشة. اعمليها أول شي، وبعدين فعّلي الإشعارات من تحت.', installBtn:'تثبيت التطبيق', installedBadge:'مثبّت على هالجهاز', installHow:'أندرويد (Chrome): القائمة ⋮ ← تثبيت التطبيق / إضافة إلى الشاشة الرئيسية.  آيفون (Safari): مشاركة ← إضافة إلى الشاشة الرئيسية.',
     shopWaSettings:'رقم واتساب المحل', shopWaDesc:'الرقم يلي بدك تفاصيل الطلب الكاملة توصله عبر واتساب — عادةً تلفون المحل نفسه.',
     shopWaLabel:'رقم واتساب المحل (مثلاً 962790101517)', shopWaSaveBtn:'حفظ', shopWaSavedToast:'تم حفظ رقم واتساب المحل',
     shopWaConnected:'محفوظ', shopWaChange:'تغيير الرقم',
@@ -886,8 +922,14 @@ function showToast(msg){
   clearTimeout(window._toastT);
   window._toastT = setTimeout(()=>el.classList.remove('show'), 2400);
 }
-function go(name, param){ route = {name, param: param||null}; window.scrollTo({top:0,behavior:'smooth'}); renderApp(); }
-function setLang(l){ lang = l; document.documentElement.lang = l; document.documentElement.dir = T[l].dir; renderApp(); }
+function go(name, param){ sidebarOpen = false; route = {name, param: param||null}; window.scrollTo({top:0,behavior:'smooth'}); renderApp(); }
+function setLang(l){
+  lang = l; document.documentElement.lang = l; document.documentElement.dir = T[l].dir;
+  sidebarOpen = false;
+  document.body.classList.add('no-anim');
+  renderApp();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>document.body.classList.remove('no-anim')));
+}
 function isStockAvailable(p){ return productStock[p.id] !== undefined ? productStock[p.id] : p.stock; }
 function isCategoryVisible(c){ return categoryVisible[c.id] !== undefined ? categoryVisible[c.id] : c.visible; }
 
@@ -1103,6 +1145,11 @@ function renderDashboard(){
 function setOrderFilter(f){ orderFilter=f; renderApp(); }
 function onOrderSearch(v){ orderSearch=v; renderApp(); const el=document.getElementById('orderSearchInput'); if(el){el.focus(); el.setSelectionRange(v.length,v.length);} }
 
+// an order placed in the last 24 hours counts as "today's" order
+function isRecentOrder(o){
+  const ts = new Date(o.createdAt).getTime();
+  return !isNaN(ts) && (Date.now() - ts) < 24*60*60*1000;
+}
 function renderOrders(){
   const d = t();
   const gate = ordersGateHtml();
@@ -1130,23 +1177,19 @@ function renderOrders(){
       </div>
       <div class="search-input">${I.search}<input id="orderSearchInput" type="text" placeholder="${d.searchOrdersPh}" value="${orderSearch}" oninput="onOrderSearch(this.value)"></div>
     </div>
+    <div class="order-legend">
+      <span><i class="od-dot od-dot-new"></i>${d.legendRecent}</span>
+      <span><i class="od-dot od-dot-old"></i>${d.legendOld}</span>
+    </div>
     <div class="card">
-      <div class="table-wrap">
-        <table class="admin-table">
-          <thead><tr><th>${d.colOrder}</th><th>${d.colCustomer}</th><th>${d.colPhone}</th><th>${d.colDate}</th><th>${d.colTotal}</th><th>${d.colPayment}</th><th>${d.colStatus}</th></tr></thead>
-          <tbody>
-            ${list.length ? list.map(o=>`
-              <tr onclick="go('orderDetail','${o.no}')">
-                <td class="cell-strong">${o.no}</td>
-                <td>${lang==='ar'?o.custAr:o.custEn}</td>
-                <td class="cell-muted">${o.phone}</td>
-                <td class="cell-muted">${o.date}</td>
-                <td class="cell-strong">${fmt(o.total)}</td>
-                <td class="cell-muted">${lang==='ar'?o.paymentAr:o.paymentEn}</td>
-                <td><span class="badge ${o.status}">${statusLabel(o.status)}</span></td>
-              </tr>`).join('') : `<tr><td colspan="7"><div class="empty-note">${emptyMsg}</div></td></tr>`}
-          </tbody>
-        </table>
+      <div class="order-rows">
+        ${list.length ? list.map(o=>`
+          <div class="order-row ${isRecentOrder(o)?'is-recent':'is-old'}" onclick="go('orderDetail','${o.no}')">
+            <i class="od-dot ${isRecentOrder(o)?'od-dot-new':'od-dot-old'}"></i>
+            <span class="od-name">${lang==='ar'?o.custAr:o.custEn}</span>
+            <span class="od-type">${lang==='ar'?o.paymentAr:o.paymentEn}</span>
+            <span class="od-total">${fmt(o.total)}</span>
+          </div>`).join('') : `<div class="empty-note">${emptyMsg}</div>`}
       </div>
     </div>
   `;
@@ -1489,15 +1532,6 @@ function renderInstallRow(d){
   if(deferredInstallPrompt) return `<div class="settings-row"><span class="cell-muted">${d.installHow.split('  ')[0]}</span><button class="btn btn-primary btn-sm" onclick="installApp()">${d.installBtn}</button></div>`;
   return `<p class="install-hint">${d.installHow.split('  ').join('<br>')}</p>`;
 }
-// on phones the tables render as cards; each cell needs its column title
-function labelTables(){
-  document.querySelectorAll('table.admin-table').forEach(tb=>{
-    const heads = [...tb.querySelectorAll('thead th')].map(h=>h.textContent.trim());
-    tb.querySelectorAll('tbody tr').forEach(tr=>{
-      [...tr.children].forEach((td,i)=>{ if(heads[i]) td.setAttribute('data-label', heads[i]); });
-    });
-  });
-}
 function renderNotifRow(d){
   if(pushStatus==='unsupported') return `<div class="settings-row"><span class="cell-muted">${d.notifUnsupported}</span></div>`;
   if(pushStatus==='insecure') return `<div class="settings-row"><span class="cell-muted">${d.notifInsecure}</span></div>`;
@@ -1608,7 +1642,6 @@ function renderApp(){
     pageContent();
   }
   if(confirmAction) renderConfirmModal();
-  labelTables();
 }
 
 document.getElementById('sidebarOverlay').addEventListener('click', ()=>{ sidebarOpen=false; renderSidebar(); });
