@@ -328,6 +328,11 @@ table.admin-table tbody tr:hover{background:var(--cream-2);}
 .od-main .od-name{flex:none;}
 .od-meta{font-size:.74rem;color:var(--ink-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .order-row.is-old .od-meta{opacity:.72;}
+.od-when{display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;white-space:nowrap;padding:0 6px;}
+.od-when .od-d{font-size:.82rem;font-weight:600;color:var(--ink);}
+.od-when .od-t{font-size:.8rem;font-weight:500;color:var(--ink-soft,var(--ink));}
+.order-row.is-old .od-when{opacity:.72;}
+.od-meta{font-size:.78rem;}
 .od-type{font-size:.72rem;color:var(--ink-faint);white-space:nowrap;max-width:34%;overflow:hidden;text-overflow:ellipsis;}
 .od-total{font-weight:700;white-space:nowrap;}
 .order-row.is-old .od-name,.order-row.is-old .od-type,.order-row.is-old .od-total{opacity:.6;}
@@ -653,6 +658,12 @@ function fmt12(dt){
   const suf = lang==='ar' ? (pm?'م':'ص') : (pm?'PM':'AM');
   return `${h}:${pad(dt.getMinutes())} ${suf}`;
 }
+function formatOrderDay(iso){
+  const dt = new Date(iso); if(isNaN(dt)) return '';
+  const pad = n=>String(n).padStart(2,'0');
+  return `${pad(dt.getDate())}/${pad(dt.getMonth()+1)}`;
+}
+function formatOrderTime(iso){ const dt = new Date(iso); return isNaN(dt) ? '' : fmt12(dt); }
 function formatOrderShort(iso){
   try{
     const dt = new Date(iso); if(isNaN(dt)) return '';
@@ -1219,8 +1230,9 @@ function renderOrders(){
             <i class="od-dot ${isRecentOrder(o)?'od-dot-new':'od-dot-old'}"></i>
             <span class="od-main">
               <span class="od-name">${lang==='ar'?o.custAr:o.custEn}</span>
-              <span class="od-meta">${[lang==='ar'?o.branchAr:o.branchEn, formatOrderShort(o.createdAt)].filter(Boolean).join(' · ')}</span>
+              <span class="od-meta">${lang==='ar'?o.branchAr:o.branchEn}</span>
             </span>
+            <span class="od-when"><span class="od-d">${formatOrderDay(o.createdAt)}</span><span class="od-t">${formatOrderTime(o.createdAt)}</span></span>
             <span class="od-total">${fmt(o.total)}</span>
           </div>`).join('') : `<div class="empty-note">${emptyMsg}</div>`}
       </div>
