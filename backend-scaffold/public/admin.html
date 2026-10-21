@@ -324,6 +324,10 @@ table.admin-table tbody tr:hover{background:var(--cream-2);}
 .od-dot-new{background:#2E9B57;box-shadow:0 0 0 3px rgba(46,155,87,.18);}
 .od-dot-old{background:var(--red);}
 .od-name{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.od-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.od-main .od-name{flex:none;}
+.od-meta{font-size:.74rem;color:var(--ink-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.order-row.is-old .od-meta{opacity:.72;}
 .od-type{font-size:.72rem;color:var(--ink-faint);white-space:nowrap;max-width:34%;overflow:hidden;text-overflow:ellipsis;}
 .od-total{font-weight:700;white-space:nowrap;}
 .order-row.is-old .od-name,.order-row.is-old .od-type,.order-row.is-old .od-total{opacity:.6;}
@@ -630,6 +634,25 @@ function formatOrderDate(iso){
     return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
   }catch(e){ return iso||''; }
 }
+function branchLabel(o){
+  // The backend's branch field name isn't known here, so check the likely ones.
+  const c = o.customer || {};
+  const raw = o.branchName || o.branch || o.branchId || o.branch_id || o.pickupBranch ||
+              o.storeBranch || o.store || c.branch || c.branchName ||
+              (o.fulfillment && (o.fulfillment.branch || o.fulfillment.branchName)) || '';
+  const v = (typeof raw === 'object' && raw) ? (raw.name || raw.nameEn || raw.nameAr || raw.id || '') : String(raw);
+  const k = v.toLowerCase();
+  if(/amman|عمان/.test(k)) return {en:'Amman', ar:'عمان'};
+  if(/irbid|اربد|إربد/.test(k)) return {en:'Irbid', ar:'إربد'};
+  return v ? {en:v, ar:v} : {en:'', ar:''};
+}
+function formatOrderShort(iso){
+  try{
+    const dt = new Date(iso); if(isNaN(dt)) return '';
+    const pad = n=>String(n).padStart(2,'0');
+    return `${pad(dt.getDate())}/${pad(dt.getMonth()+1)} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+  }catch(e){ return ''; }
+}
 function mapOrder(o){
   const pay = paymentLabel(o.paymentMethod);
   const items = (o.items||[]).map(it=>({
@@ -650,6 +673,8 @@ function mapOrder(o){
     date: formatOrderDate(o.createdAt),
     createdAt: o.createdAt,
     paymentEn: pay.en, paymentAr: pay.ar,
+    branchEn: branchLabel(o).en, branchAr: branchLabel(o).ar,
+    dateShort: formatOrderShort(o.createdAt),
     status: o.fulfillmentStatus || 'new',
     items, subtotal, delivery, total,
   };
@@ -1186,8 +1211,10 @@ function renderOrders(){
         ${list.length ? list.map(o=>`
           <div class="order-row ${isRecentOrder(o)?'is-recent':'is-old'}" onclick="go('orderDetail','${o.no}')">
             <i class="od-dot ${isRecentOrder(o)?'od-dot-new':'od-dot-old'}"></i>
-            <span class="od-name">${lang==='ar'?o.custAr:o.custEn}</span>
-            <span class="od-type">${lang==='ar'?o.paymentAr:o.paymentEn}</span>
+            <span class="od-main">
+              <span class="od-name">${lang==='ar'?o.custAr:o.custEn}</span>
+              <span class="od-meta">${[lang==='ar'?o.branchAr:o.branchEn, o.dateShort].filter(Boolean).join(' · ')}</span>
+            </span>
             <span class="od-total">${fmt(o.total)}</span>
           </div>`).join('') : `<div class="empty-note">${emptyMsg}</div>`}
       </div>
