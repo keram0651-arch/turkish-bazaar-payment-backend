@@ -631,7 +631,7 @@ function formatOrderDate(iso){
   try{
     const dt = new Date(iso);
     const pad = n=>String(n).padStart(2,'0');
-    return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+    return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())} ${fmt12(dt)}`;
   }catch(e){ return iso||''; }
 }
 function branchLabel(o){
@@ -641,16 +641,23 @@ function branchLabel(o){
               o.storeBranch || o.store || c.branch || c.branchName ||
               (o.fulfillment && (o.fulfillment.branch || o.fulfillment.branchName)) || '';
   const v = (typeof raw === 'object' && raw) ? (raw.name || raw.nameEn || raw.nameAr || raw.id || '') : String(raw);
-  const k = v.toLowerCase();
+  // The branch is also written inside the address text (shown on the order page) — scan it too.
+  const k = [v, c.address, c.notes, o.address, o.notes].filter(Boolean).join(' ').toLowerCase();
   if(/amman|عمان/.test(k)) return {en:'Amman', ar:'عمان'};
   if(/irbid|اربد|إربد/.test(k)) return {en:'Irbid', ar:'إربد'};
-  return v ? {en:v, ar:v} : {en:'', ar:''};
+  return v && v.length<30 ? {en:v, ar:v} : {en:'', ar:''};
+}
+function fmt12(dt){
+  const pad = n=>String(n).padStart(2,'0');
+  let h = dt.getHours(); const pm = h>=12; h = h%12 || 12;
+  const suf = lang==='ar' ? (pm?'م':'ص') : (pm?'PM':'AM');
+  return `${h}:${pad(dt.getMinutes())} ${suf}`;
 }
 function formatOrderShort(iso){
   try{
     const dt = new Date(iso); if(isNaN(dt)) return '';
     const pad = n=>String(n).padStart(2,'0');
-    return `${pad(dt.getDate())}/${pad(dt.getMonth()+1)} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+    return `${pad(dt.getDate())}/${pad(dt.getMonth()+1)} ${fmt12(dt)}`;
   }catch(e){ return ''; }
 }
 function mapOrder(o){
@@ -674,7 +681,6 @@ function mapOrder(o){
     createdAt: o.createdAt,
     paymentEn: pay.en, paymentAr: pay.ar,
     branchEn: branchLabel(o).en, branchAr: branchLabel(o).ar,
-    dateShort: formatOrderShort(o.createdAt),
     status: o.fulfillmentStatus || 'new',
     items, subtotal, delivery, total,
   };
@@ -1154,7 +1160,7 @@ function renderDashboard(){
               <tr onclick="go('orderDetail','${o.no}')">
                 <td class="cell-strong">${o.no}</td>
                 <td>${lang==='ar'?o.custAr:o.custEn}</td>
-                <td class="cell-muted">${o.date}</td>
+                <td class="cell-muted">${formatOrderDate(o.createdAt)}</td>
                 <td class="cell-strong">${fmt(o.total)}</td>
                 <td><span class="badge ${o.status}">${statusLabel(o.status)}</span></td>
               </tr>`).join('')}
@@ -1213,7 +1219,7 @@ function renderOrders(){
             <i class="od-dot ${isRecentOrder(o)?'od-dot-new':'od-dot-old'}"></i>
             <span class="od-main">
               <span class="od-name">${lang==='ar'?o.custAr:o.custEn}</span>
-              <span class="od-meta">${[lang==='ar'?o.branchAr:o.branchEn, o.dateShort].filter(Boolean).join(' · ')}</span>
+              <span class="od-meta">${[lang==='ar'?o.branchAr:o.branchEn, formatOrderShort(o.createdAt)].filter(Boolean).join(' · ')}</span>
             </span>
             <span class="od-total">${fmt(o.total)}</span>
           </div>`).join('') : `<div class="empty-note">${emptyMsg}</div>`}
@@ -1293,7 +1299,7 @@ function renderOrderDetail(no){
   document.getElementById('content').innerHTML = `
     <a href="#" class="back-link" onclick="go('orders');return false;">${I.back}${d.backToOrders}</a>
     <div class="page-head">
-      <div><h2>${o.no}</h2><p>${d.placedOn} ${o.date}</p></div>
+      <div><h2>${o.no}</h2><p>${d.placedOn} ${formatOrderDate(o.createdAt)}</p></div>
       <span class="badge ${o.status}" style="font-size:.78rem;padding:7px 14px;">${statusLabel(o.status)}</span>
     </div>
 
