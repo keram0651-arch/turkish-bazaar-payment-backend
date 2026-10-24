@@ -2200,7 +2200,7 @@ function renderSearchOverlay(){
           ${results.map(p=>`
             <div class="search-result-row" onclick="searchGoCategory('${p.cat}')">
               <div class="thumb">${placeholder(p.en,p.ar,'',p.imgKey)}</div>
-              <div class="meta"><h5>${lang==='ar'?p.ar:p.en}</h5><span>${discountedPriceMarkup(p.cat, p.price, 'sm row')}</span></div>
+              <div class="meta"><h5>${lang==='ar'?p.ar:p.en}</h5><span>${discountedPriceMarkup(p.cat, p.price, 'sm row', p.weightEn)}</span></div>
             </div>`).join('')}
         </div>
         <div style="text-align:center;margin-top:20px;">
@@ -2401,7 +2401,7 @@ function renderQuickViewModal(){
         <span class="cat-tag">${cat?catName(cat):''}</span>
         <h3>${lang==='ar'?p.ar:p.en}</h3>
         <div class="qv-meta-row"><span class="lbl">${d.weightLabel}</span><span class="val">${p.weightEn?(lang==='ar'?p.weightAr:p.weightEn):'—'}</span></div>
-        <div class="qv-meta-row ${isDiscountedCat(p.cat)?'qv-disc':''}"><span class="lbl">${d.priceLabel}</span><span class="val price">${discountedPriceMarkup(p.cat, p.price, 'lg')}</span></div>
+        <div class="qv-meta-row ${isDiscountedCat(p.cat)?'qv-disc':''}"><span class="lbl">${d.priceLabel}</span><span class="val price">${discountedPriceMarkup(p.cat, p.price, 'lg', p.weightEn)}</span></div>
         ${desc?`<p class="qv-desc">${desc}</p>`:''}
         <div class="qv-qty-row">
           <span class="lbl" style="font-size:.76rem;letter-spacing:.06em;text-transform:uppercase;">${d.quantityLabel}</span>
@@ -2424,7 +2424,7 @@ function renderQuickViewModal(){
             <div class="qv-related-item" onclick="openQuickView('${r.cat}','${escapeAttr(r.en)}','${r.weightEn?escapeAttr(r.weightEn):''}')">
               <div class="thumb">${placeholder(r.en,r.ar,'',r.imgKey)}</div>
               <div class="rp-name">${lang==='ar'?r.ar:r.en}</div>
-              <div class="rp-price">${discountedPriceMarkup(r.cat, r.price, 'sm')}</div>
+              <div class="rp-price">${discountedPriceMarkup(r.cat, r.price, 'sm', r.weightEn)}</div>
             </div>`).join('')}
         </div>
       </div>` : ''}
@@ -2790,7 +2790,7 @@ function renderCheckoutModal(){
         `).join('')}
         <div class="co-divider"></div>
         <div class="co-line"><span>${d.subtotal}</span><b>${fmtPrice(cartSubtotal())}</b></div>
-        ${cartDiscount()>0 ? `<div class="co-line" style="color:var(--red);"><span>${lang==='ar'?`خصم ${SITE_DISCOUNT_PERCENT}% (بقلاوة وحلقوم)`:`Discount ${SITE_DISCOUNT_PERCENT}% (baklava & delight)`}</span><b>-${fmtPrice(cartDiscount())}</b></div>` : ''}
+        ${cartDiscount()>0 ? `<div class="co-line" style="color:var(--red);"><span>${lang==='ar'?`خصم ${discountLabelPct()} (بقلاوة وحلقوم)`:`Discount ${discountLabelPct()} (baklava & delight)`}</span><b>-${fmtPrice(cartDiscount())}</b></div>` : ''}
         <div class="co-line"><span>${d.delivery}</span><b>${deliveryPending()?(lang==='ar'?'حسب المنطقة':'Depends on area'):(cartDelivery()===0?(lang==='ar'?'مجاني':'Free'):fmtPrice(cartDelivery()))}</b></div>
         <div class="co-divider"></div>
         <div class="co-line" style="font-size:1rem;"><span>${d.total}</span><b style="color:var(--red);font-family:var(--serif);font-size:1.15rem;">${fmtPrice(cartTotal())}</b></div>
@@ -2974,7 +2974,7 @@ function renderCollectionCard(c){
         <button class="${w==='05'?'active':''}" onclick="setWeight('${c.id}','05')">${lang==='ar'?baklavaWeight05Ar(c):baklavaWeight05En(c)}</button>
       </div>
       <div class="price-row">
-        <span class="price">${discountedPriceMarkup('baklava', price, 'lg')}</span>
+        <span class="price">${discountedPriceMarkup('baklava', price, 'lg', w==='1'?'1 KG':baklavaWeight05En(c))}</span>
         <small>${w==='1'?d.weight1:(lang==='ar'?baklavaWeight05Ar(c):baklavaWeight05En(c))}</small>
       </div>
       <div class="qty-row">
@@ -3132,7 +3132,7 @@ function renderMiniCard(catId, p){
       <div class="delight-mini-thumb">${placeholder(p.en, p.ar, '', p.imgKey)}</div>
       <div class="delight-mini-name">${lang==='ar'?p.ar:p.en}</div>
       ${isDiscountedCat(catId)
-        ? `<div class="delight-mini-meta" style="margin-bottom:3px;">${weightText}</div><div class="delight-mini-price">${discountedPriceMarkup(catId, p.price, 'sm')}</div>`
+        ? `<div class="delight-mini-meta" style="margin-bottom:3px;">${weightText}</div><div class="delight-mini-price">${discountedPriceMarkup(catId, p.price, 'sm', p.weightEn)}</div>`
         : `<div class="delight-mini-meta">${weightText?`${weightText} · `:''}<b>${fmtPrice(p.price)}</b></div>`}
     </div>
     <button class="delight-mini-add" onclick="addSimpleToCart('${catId}','${escapeAttr(p.en)}','${escapeAttr(p.ar)}',${p.price},${p.imgKey?`'${p.imgKey}'`:'null'},'${wEn}','${wAr}')" aria-label="${d.addCart}">${ICONS.plus}</button>
@@ -3251,7 +3251,7 @@ function renderProductCard(catId, p, idx){
       <h4 class="pc-clickable" onclick="openQuickView('${catId}','${escapeAttr(p.en)}','${wEn}')">${lang==='ar'?p.ar:p.en}</h4>
       ${shortDesc?`<div class="pc-shortdesc">${shortDesc}</div>`:''}
       <div class="pc-weight"><b>${d.weightLabel}:</b> ${weightText}</div>
-      <div class="price">${isDiscountedCat(catId)?'':`<span class="pc-price-label">${d.priceLabel}:</span> `}${productPriceDisplay(catId, p.price)}</div>
+      <div class="price">${isDiscountedCat(catId)?'':`<span class="pc-price-label">${d.priceLabel}:</span> `}${productPriceDisplay(catId, p.price, p.weightEn)}</div>
       <button class="btn btn-primary" onclick="addSimpleToCart('${catId}','${escapeAttr(p.en)}','${escapeAttr(p.ar)}',${p.price},${p.imgKey?`'${p.imgKey}'`:'null'},'${wEn}','${wAr}')">${ICONS.bag}${d.addCart}</button>
     </div>
   </div>`;
@@ -3625,9 +3625,19 @@ function toggleWish(catId, en, ar, price, weightEn, weightAr){
    in CATEGORIES above — e.g. 'baklava', 'delight'). */
 const SITE_DISCOUNT_PERCENT = 20;
 const DISCOUNT_CATEGORIES = ['baklava','trays','delight'];
+// Half-kilo boxes (0.5 KG / 550g / 450g) get a smaller discount than the 1 KG ones.
+const HALF_KG_DISCOUNT_PERCENT = 10;
+function isHalfKgWeight(w){ return /^\s*(0\.5\s*(kg|كغم)|550\s*(g|غ)|450\s*(g|غ))\s*$/i.test(w||''); }
+function discountPctFor(catId, weight){
+  if(!(SITE_DISCOUNT_PERCENT>0) || !DISCOUNT_CATEGORIES.includes(catId)) return 0;
+  return isHalfKgWeight(weight) ? HALF_KG_DISCOUNT_PERCENT : SITE_DISCOUNT_PERCENT;
+}
+function discountLabelPct(){
+  const set = [...new Set(cart.map(l=>discountPctFor(l.cat, l.weight)).filter(x=>x>0))].sort((a,b)=>b-a);
+  return set.length ? set.join('% / ')+'%' : SITE_DISCOUNT_PERCENT+'%';
+}
 function cartSubtotal(){ return cart.reduce((s,l)=>s+l.price*l.qty,0); }
-function discountEligibleSubtotal(){ return cart.filter(l=>DISCOUNT_CATEGORIES.includes(l.cat)).reduce((s,l)=>s+l.price*l.qty,0); }
-function cartDiscount(){ return SITE_DISCOUNT_PERCENT>0 ? discountEligibleSubtotal()*(SITE_DISCOUNT_PERCENT/100) : 0; }
+function cartDiscount(){ return cart.reduce((s,l)=>s+l.price*l.qty*(discountPctFor(l.cat,l.weight)/100),0); }
 function cartSubtotalAfterDiscount(){ return cartSubtotal()-cartDiscount(); }
 // Delivery pricing: flat price per delivery area, chosen by the customer in
 // the checkout form (a dropdown with a radio circle + price next to each area).
@@ -3677,14 +3687,14 @@ function isDiscountedCat(catId){ return SITE_DISCOUNT_PERCENT>0 && DISCOUNT_CATE
 // One shared look for every discounted item: small white circle with the OLD
 // price (red, struck through) and the NEW, bigger price underneath it.
 // size: '' (card) | 'sm' (lists) | 'lg' (quick view); add ' row' to lay out side by side.
-function discountedPriceMarkup(catId, price, size){
+function discountedPriceMarkup(catId, price, size, weight){
   if(!isDiscountedCat(catId)) return fmtPrice(price);
-  const discPrice = price * (1 - SITE_DISCOUNT_PERCENT/100);
+  const discPrice = price * (1 - discountPctFor(catId, weight)/100);
   return `<span class="dp ${size||''}"><i class="dp-old">${price.toFixed(2)}</i><b class="dp-new">${fmtPrice(discPrice)}</b></span>`;
 }
-function productPriceDisplay(catId, price){
+function productPriceDisplay(catId, price, weight){
   if(isDiscountedCat(catId)){
-    return discountedPriceMarkup(catId, price);
+    return discountedPriceMarkup(catId, price, '', weight);
   }
   return fmtPrice(price);
 }
@@ -3719,7 +3729,7 @@ function renderCartDrawer(){
     ${empty ? '' : `
     <div class="drawer-foot">
       <div class="tot-row"><span>${d.subtotal}</span><span>${fmtPrice(cartSubtotal())}</span></div>
-      ${cartDiscount()>0 ? `<div class="tot-row" style="color:var(--red);"><span>${lang==='ar'?`خصم ${SITE_DISCOUNT_PERCENT}% (بقلاوة وحلقوم)`:`Discount ${SITE_DISCOUNT_PERCENT}% (baklava & delight)`}</span><span>-${fmtPrice(cartDiscount())}</span></div>` : ''}
+      ${cartDiscount()>0 ? `<div class="tot-row" style="color:var(--red);"><span>${lang==='ar'?`خصم ${discountLabelPct()} (بقلاوة وحلقوم)`:`Discount ${discountLabelPct()} (baklava & delight)`}</span><span>-${fmtPrice(cartDiscount())}</span></div>` : ''}
       <div class="tot-row"><span>${d.delivery}</span><span>${deliveryPending()?(lang==='ar'?'حسب المنطقة':'Depends on area'):(cartDelivery()===0?(lang==='ar'?'مجاني':'Free'):fmtPrice(cartDelivery()))}</span></div>
       <div class="tot-row" style="font-size:.72rem;">${d.deliveryPricingNote}</div>
       <div class="tot-row grand"><span>${d.total}</span><b>${fmtPrice(cartTotal())}</b></div>
@@ -3884,8 +3894,8 @@ function pageContent(){
 function renderPromoBanner(){
   if(SITE_DISCOUNT_PERCENT<=0) return '';
   const msg = lang==='ar'
-    ? `🎉 خصم ${SITE_DISCOUNT_PERCENT}% على البقلاوة والحلقوم التركي لفترة محدودة`
-    : `🎉 ${SITE_DISCOUNT_PERCENT}% off Baklava & Turkish Delight for a limited time`;
+    ? `🎉 خصم ${SITE_DISCOUNT_PERCENT}% على الكيلو و${HALF_KG_DISCOUNT_PERCENT}% على النصف كيلو من البقلاوة والراحة لفترة محدودة`
+    : `🎉 ${SITE_DISCOUNT_PERCENT}% off 1 KG & ${HALF_KG_DISCOUNT_PERCENT}% off 0.5 KG — Baklava & Turkish Delight, for a limited time`;
   return `<div class="promo-banner" style="background:var(--red,#7a1f2b);color:#fff;text-align:center;padding:9px 12px;font-size:.82rem;font-weight:600;letter-spacing:.02em;">${msg}</div>`;
 }
 
