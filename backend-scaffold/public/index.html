@@ -1522,6 +1522,11 @@ const PRODUCT_IMAGES = {
   chocDragee: "/images/chocDragee.jpg",
   coffeeOsso: "/images/coffeeOsso.jpg",
   teaCaykur: "/images/teaCaykur.jpg",
+  teaFlavorPomegranate: "/images/teaFlavorPomegranate.jpg",
+  teaFlavorSultan: "/images/teaFlavorSultan.jpg",
+  teaFlavorBlackberry: "/images/teaFlavorBlackberry.jpg",
+  teaFlavorLemonGinger: "/images/teaFlavorLemonGinger.jpg",
+  teaFlavorEucalyptus: "/images/teaFlavorEucalyptus.jpg",
 };
 /* ============================= DATA ============================= */
 const T = {
@@ -1736,6 +1741,7 @@ const CATEGORIES = [
   {id:'malban', en:'Malban', ar:'ملبن', accent:'red'},
   {id:'chocolate', en:'Turkish Chocolate', ar:'الشوكولاتة التركية', accent:'ink'},
   {id:'tea', en:'Turkish Tea', ar:'الشاي التركي', accent:'red'},
+  {id:'flavoredtea', en:'Flavored Turkish Tea', ar:'شاي تركي نكهات', accent:'red'},
   {id:'coffee', en:'Turkish Coffee', ar:'القهوة التركية', accent:'ink'},
   {id:'traditional', en:'Traditional Products', ar:'منتجات تراثية', accent:'gold'},
   {id:'spices', en:'Spices', ar:'التوابل', accent:'gold'},
@@ -1763,6 +1769,7 @@ const NAV_ITEMS = [
   {category:'delight'},
   {category:'chocolate'},
   {category:'tea'},
+  {category:'flavoredtea'},
   {category:'coffee'},
   {category:'traditional'},
   {route:'about'},
@@ -1810,6 +1817,7 @@ const CATEGORY_SHORT_DESC = {
   malban:{en:'Soft fruit rolls, naturally sweet', ar:'ملبن طري بنكهة الفواكه'},
   chocolate:{en:'Turkish cacao, finished with nuts', ar:'كاكاو تركي بلمسة المكسرات'},
   tea:{en:'Black Sea leaves, brewed strong', ar:'أوراق البحر الأسود، منقوعة بقوة'},
+  flavoredtea:{en:'Fruit & floral Turkish tea blends, 200g', ar:'تشكيلات شاي تركي بنكهات الفواكه والأزهار، 200غ'},
   coffee:{en:'Ground fine, brewed slow', ar:'مطحونة ناعمة، محضرة بأناة'},
   traditional:{en:'Everyday treasures of a Turkish home', ar:'كنوز البيت التركي اليومية'},
   spices:{en:'Sun-dried, stone-ground, bold', ar:'مجففة بالشمس ومطحونة بالحجر'},
@@ -1894,6 +1902,13 @@ const GENERIC_PRODUCTS = {
     {en:'Rize Turist Çayı',ar:'شاي رايزة السياحي',price:9,imgKey:'teaRizeTuristA',weightEn:'500g',weightAr:'500غ'},
     {en:'Altınbaş Classic',ar:'شاي التن باش كلاسيك',price:9,imgKey:'teaAltinbasClassic',weightEn:'500g',weightAr:'500غ'},
     {en:'Rize Turist Çayı',ar:'شاي رايزة السياحي',price:9,imgKey:'teaRizeTuristB',weightEn:'500g',weightAr:'500غ'},
+  ],
+  flavoredtea:[
+    {en:'Pomegranate Tea',ar:'شاي الرمان',price:5,imgKey:'teaFlavorPomegranate',weightEn:'200g',weightAr:'200غ'},
+    {en:'Sultan Tea',ar:'شاي السلطان',price:5,imgKey:'teaFlavorSultan',weightEn:'200g',weightAr:'200غ'},
+    {en:'Blackberry Tea',ar:'شاي التوت الأسود',price:5,imgKey:'teaFlavorBlackberry',weightEn:'200g',weightAr:'200غ'},
+    {en:'Lemon & Ginger Tea',ar:'شاي الليمون والزنجبيل',price:5,imgKey:'teaFlavorLemonGinger',weightEn:'200g',weightAr:'200غ'},
+    {en:'Eucalyptus Tea',ar:'شاي النعناع والأوكالبتوس',price:5,imgKey:'teaFlavorEucalyptus',weightEn:'200g',weightAr:'200غ'},
   ],
   coffee:[
     {en:'Ottoman Turkish Coffee',ar:'قهوة عثمانية',price:5,imgKey:'coffeeBagOsmanli',weightEn:'200g',weightAr:'200غ',group:'bag'},
@@ -2860,7 +2875,7 @@ function renderFooter(){
 }
 
 /* ============================= RENDER: HOME ============================= */
-const HOMEPAGE_CATEGORIES = ['trays','baklava','delight','malban','chocolate','tea','coffee','spices','vinegar','molasses'];
+const HOMEPAGE_CATEGORIES = ['trays','baklava','delight','malban','chocolate','tea','flavoredtea','coffee','spices','vinegar','molasses'];
 
 function renderHome(){
   const d = t();
@@ -3006,7 +3021,7 @@ const BANNER_IMAGES = {
 };
 
 const CATEGORY_THUMB_IMG = {
-  trays:'hawwashCover', baklava:'baklavaClean', delight:'delightBoxShowcase', malban:'malbanThumb', chocolate:'chocolateBoxShowcase', tea:'teaCaykur', coffee:'coffeeShowcase', traditional:'dragee', spices:'spiceBBQ', vinegar:'vinegarGrape', molasses:'molassesPomegranate1000',
+  trays:'hawwashCover', baklava:'baklavaClean', delight:'delightBoxShowcase', malban:'malbanThumb', chocolate:'chocolateBoxShowcase', tea:'teaCaykur', flavoredtea:'teaFlavorPomegranate', coffee:'coffeeShowcase', traditional:'dragee', spices:'spiceBBQ', vinegar:'vinegarGrape', molasses:'molassesPomegranate1000',
 };
 
 function compactCategoryHeader(cat){
