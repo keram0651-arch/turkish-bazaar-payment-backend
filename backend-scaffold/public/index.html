@@ -1039,6 +1039,10 @@ main.fade-out{opacity:0;transform:translateY(10px);}
 .qv-image .placeholder-img,.qv-image .placeholder-img.real{width:100%;height:100% !important;min-height:0;border-radius:0;}
 .qv-image .real-img{width:100%;height:100% !important;object-fit:cover !important;border-radius:0;}
 @media(min-width:640px){.qv-image{border-radius:16px 0 0 16px;}}
+
+/* Flavored tea: show the whole bag (no cropping) — image sits fully inside the frame */
+.product-card.cat-flavoredtea .placeholder-img.real .real-img,
+.qv-image.cat-flavoredtea .real-img{object-fit:contain !important;}
 </style>
 
 <style id="tb-premium-refinement">
@@ -1523,7 +1527,7 @@ const PRODUCT_IMAGES = {
   coffeeOsso: "/images/coffeeOsso.jpg",
   teaCaykur: "/images/teaCaykur.jpg",
   teaFlavorPomegranate: "/images/teaFlavorPomegranate.jpg",
-  teaFlavorSultan: "/images/teaFlavorSultan.jpg",
+  teaFlavorRose: "/images/teaFlavorRose.jpg",
   teaFlavorBlackberry: "/images/teaFlavorBlackberry.jpg",
   teaFlavorLemonGinger: "/images/teaFlavorLemonGinger.jpg",
   teaFlavorEucalyptus: "/images/teaFlavorEucalyptus.jpg",
@@ -1905,7 +1909,7 @@ const GENERIC_PRODUCTS = {
   ],
   flavoredtea:[
     {en:'Pomegranate Tea',ar:'شاي الرمان',price:5,imgKey:'teaFlavorPomegranate',weightEn:'200g',weightAr:'200غ'},
-    {en:'Sultan Tea',ar:'شاي السلطان',price:5,imgKey:'teaFlavorSultan',weightEn:'200g',weightAr:'200غ'},
+    {en:'Rose Tea',ar:'شاي الورد',price:5,imgKey:'teaFlavorRose',weightEn:'200g',weightAr:'200غ'},
     {en:'Blackberry Tea',ar:'شاي التوت الأسود',price:5,imgKey:'teaFlavorBlackberry',weightEn:'200g',weightAr:'200غ'},
     {en:'Lemon & Ginger Tea',ar:'شاي الليمون والزنجبيل',price:5,imgKey:'teaFlavorLemonGinger',weightEn:'200g',weightAr:'200غ'},
     {en:'Eucalyptus Tea',ar:'شاي النعناع والأوكالبتوس',price:5,imgKey:'teaFlavorEucalyptus',weightEn:'200g',weightAr:'200غ'},
