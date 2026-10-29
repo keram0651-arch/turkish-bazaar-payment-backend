@@ -1764,7 +1764,7 @@ const ACCENT_GRADIENTS = {
 const SOCIAL = {
   instagram:'https://www.instagram.com/turkishbazaarjo?igsh=eHU0aDc2cjNxZW43',
   facebook:'https://www.facebook.com/share/1Byn4unAza/?mibextid=wwXIfr',
-  whatsapp1:'962790796594',
+  whatsapp1:'962790637555',
 };
 
 const NAV_ITEMS = [
@@ -2507,7 +2507,7 @@ function validateCheckoutForm(){
   let address, deliveryTag;
   if(region.pickup){
     const brEl = document.getElementById('coBranch');
-    const br = brEl && brEl.value!=='' ? BRANCHES[Number(brEl.value)] : null;
+    const br = brEl && brEl.value!=='' ? CHECKOUT_BRANCHES[Number(brEl.value)] : null;
     if(!br){
       showToast(lang==='ar'?'يرجى اختيار فرع الاستلام':'Please choose the pickup branch');
       if(brEl) brEl.focus();
@@ -2679,6 +2679,20 @@ function renderCheckoutModal(){
   if(!checkoutOpen){ modal.innerHTML=''; return; }
   const d = t();
 
+  if(checkoutStep==='wa_phone'){
+    modal.innerHTML = `
+      <div class="qv-card">
+      <button class="qv-close" onclick="closeCheckout()">${ICONS.close}</button>
+      <div class="co-form" style="padding:28px 22px;max-width:420px;margin:0 auto;">
+        <h3>${lang==='ar'?'رقم هاتفك للتواصل':'Your phone number'}</h3>
+        <p style="font-size:.86rem;color:var(--ink-soft);margin:6px 0 16px;">${lang==='ar'?'اكتب رقمك حتى نتمكن من تأكيد طلبك معك.':'Enter your number so we can confirm your order with you.'}</p>
+        <div class="form-field"><label>${d.formPhone}</label><input id="waPhone" type="tel" inputmode="tel" dir="ltr" placeholder="079 000 0000" onkeydown="if(event.key==='Enter'){submitWhatsAppPhone();}"></div>
+        <button type="button" class="btn btn-whatsapp" style="width:100%;margin-top:8px;" onclick="submitWhatsAppPhone()">${ICONS.whatsapp}${d.whatsappOrder}</button>
+      </div>
+      </div>`;
+    return;
+  }
+
   if(checkoutStep==='dinarak_processing'){
     modal.innerHTML = `
       <div class="qv-card">
@@ -2787,7 +2801,7 @@ function renderCheckoutModal(){
         <div class="form-field"><label>${lang==='ar'?'فرع الاستلام':'Pickup branch'}</label>
           <select id="coBranch">
             <option value="">${lang==='ar'?'اختر الفرع':'Choose a branch'}</option>
-            ${BRANCHES.map((br,i)=>`<option value="${i}">${lang==='ar'?br.ar:br.en}</option>`).join('')}
+            ${CHECKOUT_BRANCHES.map((br,i)=>`<option value="${i}">${lang==='ar'?br.ar:br.en}</option>`).join('')}
           </select>
         </div>` : `
         <p style="font-size:.78rem;color:var(--gold-dim);margin-bottom:10px;">${d.deliveryJordanNote}</p>
@@ -2862,7 +2876,7 @@ function renderFooter(){
       <div>
         <h5>${d.footInfo}</h5>
         <a href="#" onclick="go('contact');return false;">${d.footContactLink}</a>
-        <a href="tel:0790796594">0790 796 594</a>
+        <a href="tel:0790637555" dir="ltr" style="unicode-bidi:isolate;display:inline-block;">0790 637 555</a>
       </div>
       <div>
         <h5>${d.footVisit}</h5>
@@ -2960,6 +2974,8 @@ const BRANCHES = [
   {en:'Amman City Mall', ar:'سيتي مول - عمّان'},
   {en:'Amman Mecca Mall', ar:'مكة مول - عمّان'},
 ];
+// Branches offered for pickup at checkout only (Irbid City Center + Amman Taj Mall). The full list above still shows on the Branches/Contact sections.
+const CHECKOUT_BRANCHES = [BRANCHES[0], BRANCHES[1]];
 function renderBranchGrid(compact){
   const d=t();
   const branches = BRANCHES;
@@ -3537,7 +3553,7 @@ function renderContact(){
       </div>
       <div style="background:var(--white);border:1px solid var(--cream-2);border-radius:16px;padding:28px;">
         <h4 style="margin-bottom:14px;">${d.phones}</h4>
-        <p style="color:var(--ink-soft);margin-bottom:24px;"><a href="tel:0790796594">0790 796 594</a></p>
+        <p style="color:var(--ink-soft);margin-bottom:24px;"><a href="tel:0790637555" dir="ltr" style="unicode-bidi:isolate;display:inline-block;">0790 637 555</a></p>
         <h4 style="margin-bottom:14px;">${d.branches}</h4>
         ${renderBranchGrid()}
         <h4 style="margin:24px 0 14px;">${d.followUs}</h4>
@@ -3779,7 +3795,36 @@ function buildWhatsAppOrderLink(orderId){
 // (without a phone number) and opens the WhatsApp chat immediately.
 function sendOrderViaWhatsApp(){
   if(cart.length===0){ showToast(lang==='ar'?'سلتك فارغة':'Your cart is empty'); return; }
-  finishWhatsAppOrder('');
+  askWhatsAppPhone();
+}
+
+// Ask for the customer's phone number first, so it shows up in the admin panel.
+function askWhatsAppPhone(){
+  closeCart(); closeSearch(); closeAccount(); closeQuickView(); toggleMobileNav(false);
+  checkoutOpen = true;
+  checkoutStep = 'wa_phone';
+  document.getElementById('checkoutOverlay').classList.add('open');
+  document.getElementById('checkoutModal').classList.add('open');
+  lockBodyScroll();
+  renderCheckoutModal();
+  setTimeout(()=>{ const el=document.getElementById('waPhone'); if(el) el.focus(); }, 150);
+}
+function normalizeJoPhone(raw){
+  let v = String(raw||'').replace(/[\s\-()]/g,'').replace(/[٠-٩]/g, d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+  v = v.replace(/^\+?962/,'0');
+  if(/^7[789]\d{7}$/.test(v)) v = '0'+v;
+  return /^07[789]\d{7}$/.test(v) ? v : null;
+}
+function submitWhatsAppPhone(){
+  const el = document.getElementById('waPhone');
+  const phone = normalizeJoPhone(el ? el.value : '');
+  if(!phone){
+    showToast(lang==='ar'?'يرجى إدخال رقم هاتف أردني صحيح (مثال: 0791234567)':'Please enter a valid Jordanian number (e.g. 0791234567)');
+    if(el) el.focus();
+    return;
+  }
+  closeCheckout();
+  finishWhatsAppOrder(phone);
 }
 
 function finishWhatsAppOrder(phone){
