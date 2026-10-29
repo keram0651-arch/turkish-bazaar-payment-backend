@@ -2,7 +2,8 @@
 <html lang="en" dir="ltr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#4E0F1B">
 <title>Turkish Bazaar — Admin (Prototype)</title>
 <!-- Makes "Add to Home Screen" on iOS launch this as a standalone app
      (hides Safari's address bar) instead of a plain bookmark — required for
@@ -89,7 +90,7 @@ img{max-width:100%;display:block;}
 
 .content{padding:24px;max-width:1400px;width:100%;margin:0 auto;flex:1;}
 
-@media(max-width:960px){
+@media(max-width:960px), (pointer:coarse) and (max-device-width:1024px){
   .sidebar{transform:translateX(-100%);}
   [dir="rtl"] .sidebar{transform:translateX(100%);}
   .sidebar.open{transform:translateX(0);}
@@ -296,6 +297,76 @@ table.admin-table tbody tr:hover{background:var(--cream-2);}
 .settings-row:last-child{border-bottom:none;}
 
 .empty-note{text-align:center;padding:50px 20px;color:var(--ink-soft);font-size:.86rem;}
+
+/* ---------- phone / app hardening ---------- */
+[dir="ltr"] .sidebar{left:0;}
+[dir="rtl"] .sidebar{right:0;}
+.admin-shell,.main-area{min-height:100dvh;}
+.sidebar{padding-top:env(safe-area-inset-top,0px);}
+.topbar{padding-top:calc(14px + env(safe-area-inset-top,0px));}
+#toast{bottom:calc(24px + env(safe-area-inset-bottom,0px));}
+.content{padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));}
+@media(max-width:640px){
+  input,select,textarea{font-size:16px;}
+  .search-input{min-width:0;flex:1 1 100%;}
+  .toolbar{gap:8px;}
+  .page-head h2{font-size:1.25rem;}
+}
+.install-hint{font-size:.78rem;color:var(--ink-soft);line-height:1.6;margin:0;}
+
+/* ---------- orders list: one compact row per order ---------- */
+.order-legend{display:flex;flex-wrap:wrap;gap:16px;font-size:.74rem;color:var(--ink-soft);margin:0 0 10px;}
+.order-legend span{display:inline-flex;align-items:center;gap:6px;}
+.order-row{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--red);cursor:pointer;}
+.order-row:last-child{border-bottom:none;}
+.order-row:hover{background:rgba(0,0,0,.03);}
+.od-dot{display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.od-dot-new{background:#2E9B57;box-shadow:0 0 0 3px rgba(46,155,87,.18);}
+.od-dot-old{background:var(--red);}
+.od-name{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.od-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.od-main .od-name{flex:none;}
+.od-meta{font-size:.74rem;color:var(--ink-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.order-row.is-old .od-meta{opacity:.72;}
+.od-when{display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;white-space:nowrap;padding:0 6px;}
+.od-when .od-d{font-size:.82rem;font-weight:600;color:var(--ink);}
+.od-when .od-t{font-size:.8rem;font-weight:500;color:var(--ink-soft,var(--ink));}
+.order-row.is-old .od-when{opacity:.72;}
+.od-meta{font-size:.78rem;}
+.od-type{font-size:.72rem;color:var(--ink-faint);white-space:nowrap;max-width:34%;overflow:hidden;text-overflow:ellipsis;}
+.od-total{font-weight:700;white-space:nowrap;}
+.order-row.is-old .od-name,.order-row.is-old .od-type,.order-row.is-old .od-total{opacity:.6;}
+
+/* keep wide tables scrolling inside their own box instead of widening the whole page */
+.admin-shell>*,.main-area,.content,.card,.table-wrap{min-width:0;}
+.table-wrap{max-width:100%;-webkit-overflow-scrolling:touch;}
+
+/* thin red line between orders (and under the table heading) */
+table.admin-table th{border-bottom:1px solid var(--red);}
+table.admin-table td{border-bottom:1px solid var(--red);}
+table.admin-table tr:last-child td{border-bottom:none;}
+
+/* on phones the red side menu is completely hidden unless it is opened,
+   and it slides to the correct side for both English and Arabic */
+@media(max-width:960px), (pointer:coarse) and (max-device-width:1024px){
+  .sidebar{max-width:85vw;visibility:hidden;transition:transform .35s cubic-bezier(.16,1,.3,1), visibility 0s linear .35s;}
+  [dir="ltr"] .sidebar{transform:translateX(-105%);}
+  [dir="rtl"] .sidebar{transform:translateX(105%);}
+  .sidebar.open,[dir="ltr"] .sidebar.open,[dir="rtl"] .sidebar.open{transform:translateX(0);visibility:visible;transition:transform .35s cubic-bezier(.16,1,.3,1), visibility 0s;}
+}
+/* hardening: a closed menu can never cover or block the screen, and never widens the page (RTL/iOS) */
+@media(max-width:960px), (pointer:coarse) and (max-device-width:1024px){
+  html,body{overflow-x:hidden;max-width:100%;}
+  .sidebar{pointer-events:none;}
+  .sidebar.open{pointer-events:auto;}
+  .sidebar-overlay{z-index:55;}
+}
+/* orders: today's = clear + green dot, older = lightly dimmed (still readable) + red dot */
+.order-row.is-old{background:rgba(0,0,0,.025);}
+.order-row.is-old .od-name,.order-row.is-old .od-type,.order-row.is-old .od-total{opacity:.72;}
+.order-row.is-recent .od-name,.order-row.is-recent .od-total{opacity:1;}
+/* no sliding animation while the language (and so the direction) is switching */
+.no-anim .sidebar{transition:none !important;}
 </style>
 </head>
 <body>
@@ -375,6 +446,8 @@ const T = {
     orderItemsHead:'Order Items', subtotal:'Subtotal', delivery:'Delivery', total:'Total', free:'Free',
     customerHead:'Customer', name:'Name', phone:'Phone', payment:'Payment', address:'Address', notes:'Notes',
     cancelOrderTitle:'Cancel this order?', cancelOrderText:'This will mark order {no} as cancelled.',
+    deleteOrderTitle:'Delete this order permanently?', deleteOrderText:'This will permanently delete order {no}. This cannot be undone — use it for test/trial orders only.',
+    deleteOrder:'Delete Order', deleteOrderToast:'Order {no} deleted.', deleteOrderError:'Could not delete the order — try again.',
     cancel:'Cancel', confirm:'Confirm',
     productsSub:'catalog products across', categoriesWord:'categories',
     addProduct:'Add Product', addProductToast:'Product editing isn\'t connected yet — this list mirrors the website\'s catalog.',
@@ -410,6 +483,13 @@ const T = {
     notifUnsupported:'This browser doesn\'t support push notifications.', notifInsecure:'Open this page via the https:// link (not the downloaded file) to enable notifications.',
     notifDenied:'Notifications are blocked for this site — allow them from your browser\'s site settings, then try again.', notifBusy:'Working…',
     pushEnabledToast:'Notifications enabled', pushFailedToast:'Could not enable notifications', pushSetupNeeded:'Push isn\'t configured on the server yet (missing VAPID keys)',
+    legendRecent:'Last 24 hours', legendOld:'Older than 24 hours', installTitle:'Install as an app', installDesc:'Add the panel to this phone\'s home screen so it opens full-screen like an app. Do this first, then enable notifications below.', installBtn:'Install app', installedBadge:'Installed on this device', installHow:'Android (Chrome): menu ⋮ → Install app / Add to Home screen.  iPhone (Safari): Share → Add to Home Screen.',
+    shopWaSettings:'Shop WhatsApp Number', shopWaDesc:'The number that should receive full order details via WhatsApp — usually the phone at the shop itself.',
+    shopWaLabel:'Shop WhatsApp number (e.g. 962790101517)', shopWaSaveBtn:'Save', shopWaSavedToast:'Shop WhatsApp number saved',
+    shopWaConnected:'Set', shopWaChange:'Change number',
+    forwardToShopBtn:'Send order to shop via WhatsApp',
+    shopWaMsgTitle:'New order', shopWaMsgName:'Name', shopWaMsgPhone:'Phone', shopWaMsgAddress:'Address',
+    shopWaMsgItems:'Items', shopWaMsgTotal:'Total', shopWaMsgPayment:'Payment', shopWaMsgNotes:'Notes',
   },
   ar:{
     dir:'rtl',
@@ -439,6 +519,8 @@ const T = {
     orderItemsHead:'منتجات الطلب', subtotal:'المجموع الفرعي', delivery:'التوصيل', total:'الإجمالي', free:'مجاني',
     customerHead:'الزبون', name:'الاسم', phone:'الهاتف', payment:'طريقة الدفع', address:'العنوان', notes:'ملاحظات',
     cancelOrderTitle:'إلغاء هذا الطلب؟', cancelOrderText:'سيتم تعليم الطلب {no} كملغي.',
+    deleteOrderTitle:'حذف هذا الطلب نهائيًا؟', deleteOrderText:'رح يتم حذف الطلب {no} نهائيًا ولا يمكن التراجع عن هذا — استخدمي هذا فقط للطلبات التجريبية.',
+    deleteOrder:'حذف الطلب', deleteOrderToast:'تم حذف الطلب {no}.', deleteOrderError:'ما قدرنا نحذف الطلب — حاولي مرة ثانية.',
     cancel:'تراجع', confirm:'تأكيد',
     productsSub:'منتج (نسخة من كتالوج الموقع) ضمن', categoriesWord:'فئات',
     addProduct:'إضافة منتج', addProductToast:'تعديل المنتجات مش مربوط بعد — هاي القائمة نسخة عن كتالوج الموقع.',
@@ -474,6 +556,13 @@ const T = {
     notifUnsupported:'هالمتصفح ما بيدعم الإشعارات الفورية.', notifInsecure:'افتحي الصفحة من رابط https:// (مو الملف المحمّل) لتقدري تفعّلي الإشعارات.',
     notifDenied:'الإشعارات محظورة لهالموقع — فعّليها من إعدادات المتصفح لهالموقع وحاولي مرة ثانية.', notifBusy:'جارٍ التفعيل…',
     pushEnabledToast:'تم تفعيل الإشعارات', pushFailedToast:'تعذر تفعيل الإشعارات', pushSetupNeeded:'الإشعارات مش مفعّلة على السيرفر بعد (ناقص مفاتيح VAPID)',
+    legendRecent:'خلال آخر 24 ساعة', legendOld:'أقدم من 24 ساعة', installTitle:'تثبيت كتطبيق', installDesc:'ضيفي اللوحة على الشاشة الرئيسية للتلفون عشان تفتح كتطبيق بكامل الشاشة. اعمليها أول شي، وبعدين فعّلي الإشعارات من تحت.', installBtn:'تثبيت التطبيق', installedBadge:'مثبّت على هالجهاز', installHow:'أندرويد (Chrome): القائمة ⋮ ← تثبيت التطبيق / إضافة إلى الشاشة الرئيسية.  آيفون (Safari): مشاركة ← إضافة إلى الشاشة الرئيسية.',
+    shopWaSettings:'رقم واتساب المحل', shopWaDesc:'الرقم يلي بدك تفاصيل الطلب الكاملة توصله عبر واتساب — عادةً تلفون المحل نفسه.',
+    shopWaLabel:'رقم واتساب المحل (مثلاً 962790101517)', shopWaSaveBtn:'حفظ', shopWaSavedToast:'تم حفظ رقم واتساب المحل',
+    shopWaConnected:'محفوظ', shopWaChange:'تغيير الرقم',
+    forwardToShopBtn:'إرسال الطلب للمحل عبر واتساب',
+    shopWaMsgTitle:'طلب جديد', shopWaMsgName:'الاسم', shopWaMsgPhone:'الهاتف', shopWaMsgAddress:'العنوان',
+    shopWaMsgItems:'الأصناف', shopWaMsgTotal:'المجموع', shopWaMsgPayment:'طريقة الدفع', shopWaMsgNotes:'ملاحظات',
   },
 };
 
@@ -537,16 +626,50 @@ function statusLabel(s){ return STATUS_LABEL[lang][s] || s; }
 let ORDERS = null; // null = not loaded yet
 
 function paymentLabel(method){
-  // Only payment method live today; kept as a function so a future method
-  // (e.g. Dinarak) is a one-line addition, not a render-code change.
+  if(method === 'whatsapp') return {en:'Ordered via WhatsApp', ar:'طلب عبر واتساب'};
+  // Cash on Delivery is the only other payment method live today; kept as a
+  // function so a future method (e.g. Dinarak) is a one-line addition, not a
+  // render-code change.
   return {en:'Cash on Delivery', ar:'الدفع عند الاستلام'};
 }
 function formatOrderDate(iso){
   try{
     const dt = new Date(iso);
     const pad = n=>String(n).padStart(2,'0');
-    return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())} ${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+    return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())} ${fmt12(dt)}`;
   }catch(e){ return iso||''; }
+}
+function branchLabel(o){
+  // The backend's branch field name isn't known here, so check the likely ones.
+  const c = o.customer || {};
+  const raw = o.branchName || o.branch || o.branchId || o.branch_id || o.pickupBranch ||
+              o.storeBranch || o.store || c.branch || c.branchName ||
+              (o.fulfillment && (o.fulfillment.branch || o.fulfillment.branchName)) || '';
+  const v = (typeof raw === 'object' && raw) ? (raw.name || raw.nameEn || raw.nameAr || raw.id || '') : String(raw);
+  // The branch is also written inside the address text (shown on the order page) — scan it too.
+  const k = [v, c.address, c.notes, o.address, o.notes].filter(Boolean).join(' ').toLowerCase();
+  if(/amman|عمان/.test(k)) return {en:'Amman', ar:'عمان'};
+  if(/irbid|اربد|إربد/.test(k)) return {en:'Irbid', ar:'إربد'};
+  return v && v.length<30 ? {en:v, ar:v} : {en:'', ar:''};
+}
+function fmt12(dt){
+  const pad = n=>String(n).padStart(2,'0');
+  let h = dt.getHours(); const pm = h>=12; h = h%12 || 12;
+  const suf = lang==='ar' ? (pm?'م':'ص') : (pm?'PM':'AM');
+  return `${h}:${pad(dt.getMinutes())} ${suf}`;
+}
+function formatOrderDay(iso){
+  const dt = new Date(iso); if(isNaN(dt)) return '';
+  const pad = n=>String(n).padStart(2,'0');
+  return `${pad(dt.getDate())}/${pad(dt.getMonth()+1)}`;
+}
+function formatOrderTime(iso){ const dt = new Date(iso); return isNaN(dt) ? '' : fmt12(dt); }
+function formatOrderShort(iso){
+  try{
+    const dt = new Date(iso); if(isNaN(dt)) return '';
+    const pad = n=>String(n).padStart(2,'0');
+    return `${pad(dt.getDate())}/${pad(dt.getMonth()+1)} ${fmt12(dt)}`;
+  }catch(e){ return ''; }
 }
 function mapOrder(o){
   const pay = paymentLabel(o.paymentMethod);
@@ -568,6 +691,7 @@ function mapOrder(o){
     date: formatOrderDate(o.createdAt),
     createdAt: o.createdAt,
     paymentEn: pay.en, paymentAr: pay.ar,
+    branchEn: branchLabel(o).en, branchAr: branchLabel(o).ar,
     status: o.fulfillmentStatus || 'new',
     items, subtotal, delivery, total,
   };
@@ -653,6 +777,17 @@ function clearAdminKey(){
   try{ localStorage.removeItem('tb_admin_key'); }catch(e){}
 }
 
+/* Shop's own WhatsApp number — where "Send order to shop via WhatsApp"
+   forwards the full order details. Separate from the customer's number
+   (used elsewhere to contact the customer directly). Kept in this
+   browser's localStorage only, same pattern as the admin key. */
+function getShopWhatsapp(){
+  try{ return localStorage.getItem('tb_shop_whatsapp') || ''; }catch(e){ return ''; }
+}
+function setShopWhatsappValue(v){
+  try{ localStorage.setItem('tb_shop_whatsapp', v); }catch(e){}
+}
+
 async function fetchOrders(){
   const key = getAdminKey();
   if(!key) return;
@@ -683,6 +818,15 @@ async function patchFulfillment(orderId, status){
   return res.json();
 }
 
+async function deleteOrderApi(orderId){
+  const res = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(orderId)}`, {
+    method:'DELETE',
+    headers:{ 'X-Admin-Key': getAdminKey() },
+  });
+  if(!res.ok) throw new Error('delete_failed');
+  return res.json();
+}
+
 function submitAdminKey(){
   const el = document.getElementById('adminKeyInput');
   const val = el ? el.value.trim() : '';
@@ -698,6 +842,15 @@ function disconnectAdmin(){
   ORDERS = null;
   ordersError = null;
   go('dashboard');
+}
+
+function saveShopWhatsapp(){
+  const d = t();
+  const input = document.getElementById('shopWaInput');
+  if(!input) return;
+  setShopWhatsappValue(input.value.trim());
+  showToast(d.shopWaSavedToast);
+  renderApp();
 }
 
 /* =============================================================================
@@ -811,8 +964,14 @@ function showToast(msg){
   clearTimeout(window._toastT);
   window._toastT = setTimeout(()=>el.classList.remove('show'), 2400);
 }
-function go(name, param){ route = {name, param: param||null}; window.scrollTo({top:0,behavior:'smooth'}); renderApp(); }
-function setLang(l){ lang = l; document.documentElement.lang = l; document.documentElement.dir = T[l].dir; renderApp(); }
+function go(name, param){ sidebarOpen = false; route = {name, param: param||null}; window.scrollTo({top:0,behavior:'smooth'}); renderApp(); }
+function setLang(l){
+  lang = l; document.documentElement.lang = l; document.documentElement.dir = T[l].dir;
+  sidebarOpen = false;
+  document.body.classList.add('no-anim');
+  renderApp();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>document.body.classList.remove('no-anim')));
+}
 function isStockAvailable(p){ return productStock[p.id] !== undefined ? productStock[p.id] : p.stock; }
 function isCategoryVisible(c){ return categoryVisible[c.id] !== undefined ? categoryVisible[c.id] : c.visible; }
 
@@ -1012,7 +1171,7 @@ function renderDashboard(){
               <tr onclick="go('orderDetail','${o.no}')">
                 <td class="cell-strong">${o.no}</td>
                 <td>${lang==='ar'?o.custAr:o.custEn}</td>
-                <td class="cell-muted">${o.date}</td>
+                <td class="cell-muted">${formatOrderDate(o.createdAt)}</td>
                 <td class="cell-strong">${fmt(o.total)}</td>
                 <td><span class="badge ${o.status}">${statusLabel(o.status)}</span></td>
               </tr>`).join('')}
@@ -1028,6 +1187,11 @@ function renderDashboard(){
 function setOrderFilter(f){ orderFilter=f; renderApp(); }
 function onOrderSearch(v){ orderSearch=v; renderApp(); const el=document.getElementById('orderSearchInput'); if(el){el.focus(); el.setSelectionRange(v.length,v.length);} }
 
+// an order placed in the last 24 hours counts as "today's" order
+function isRecentOrder(o){
+  const ts = new Date(o.createdAt).getTime();
+  return !isNaN(ts) && (Date.now() - ts) < 24*60*60*1000;
+}
 function renderOrders(){
   const d = t();
   const gate = ordersGateHtml();
@@ -1055,23 +1219,22 @@ function renderOrders(){
       </div>
       <div class="search-input">${I.search}<input id="orderSearchInput" type="text" placeholder="${d.searchOrdersPh}" value="${orderSearch}" oninput="onOrderSearch(this.value)"></div>
     </div>
+    <div class="order-legend">
+      <span><i class="od-dot od-dot-new"></i>${d.legendRecent}</span>
+      <span><i class="od-dot od-dot-old"></i>${d.legendOld}</span>
+    </div>
     <div class="card">
-      <div class="table-wrap">
-        <table class="admin-table">
-          <thead><tr><th>${d.colOrder}</th><th>${d.colCustomer}</th><th>${d.colPhone}</th><th>${d.colDate}</th><th>${d.colTotal}</th><th>${d.colPayment}</th><th>${d.colStatus}</th></tr></thead>
-          <tbody>
-            ${list.length ? list.map(o=>`
-              <tr onclick="go('orderDetail','${o.no}')">
-                <td class="cell-strong">${o.no}</td>
-                <td>${lang==='ar'?o.custAr:o.custEn}</td>
-                <td class="cell-muted">${o.phone}</td>
-                <td class="cell-muted">${o.date}</td>
-                <td class="cell-strong">${fmt(o.total)}</td>
-                <td class="cell-muted">${lang==='ar'?o.paymentAr:o.paymentEn}</td>
-                <td><span class="badge ${o.status}">${statusLabel(o.status)}</span></td>
-              </tr>`).join('') : `<tr><td colspan="7"><div class="empty-note">${emptyMsg}</div></td></tr>`}
-          </tbody>
-        </table>
+      <div class="order-rows">
+        ${list.length ? list.map(o=>`
+          <div class="order-row ${isRecentOrder(o)?'is-recent':'is-old'}" onclick="go('orderDetail','${o.no}')">
+            <i class="od-dot ${isRecentOrder(o)?'od-dot-new':'od-dot-old'}"></i>
+            <span class="od-main">
+              <span class="od-name">${lang==='ar'?o.custAr:o.custEn}</span>
+              <span class="od-meta">${lang==='ar'?o.branchAr:o.branchEn}</span>
+            </span>
+            <span class="od-when"><span class="od-d">${formatOrderDay(o.createdAt)}</span><span class="od-t">${formatOrderTime(o.createdAt)}</span></span>
+            <span class="od-total">${fmt(o.total)}</span>
+          </div>`).join('') : `<div class="empty-note">${emptyMsg}</div>`}
       </div>
     </div>
   `;
@@ -1104,6 +1267,28 @@ function cancelOrderConfirm(no){
   });
 }
 
+function deleteOrderConfirm(no){
+  const d = t();
+  openConfirm({
+    title:d.deleteOrderTitle,
+    text:tpl(d.deleteOrderText, {no}),
+    confirmLabel:d.deleteOrder,
+    onConfirm:()=>deleteOrderNow(no),
+  });
+}
+async function deleteOrderNow(no){
+  const d = t();
+  try{
+    await deleteOrderApi(no);
+    ORDERS = ORDERS.filter(x=>x.no!==no);
+    showToast(tpl(d.deleteOrderToast, {no}));
+    if(route.name==='orderDetail' && route.param===no){ go('orders'); }
+    else{ renderApp(); }
+  }catch(e){
+    showToast(d.deleteOrderError);
+  }
+}
+
 function waLink(phone, text){
   let digits = String(phone||'').replace(/[^0-9]/g,'');
   if(digits.startsWith('00962')) digits = digits.slice(2);
@@ -1126,7 +1311,7 @@ function renderOrderDetail(no){
   document.getElementById('content').innerHTML = `
     <a href="#" class="back-link" onclick="go('orders');return false;">${I.back}${d.backToOrders}</a>
     <div class="page-head">
-      <div><h2>${o.no}</h2><p>${d.placedOn} ${o.date}</p></div>
+      <div><h2>${o.no}</h2><p>${d.placedOn} ${formatOrderDate(o.createdAt)}</p></div>
       <span class="badge ${o.status}" style="font-size:.78rem;padding:7px 14px;">${statusLabel(o.status)}</span>
     </div>
 
@@ -1144,6 +1329,7 @@ function renderOrderDetail(no){
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
         ${flowIdx>=0 && flowIdx<STATUS_FLOW.length-1 && o.status!=='cancelled' ? `<button class="btn btn-primary btn-sm" onclick="setOrderStatus('${o.no}','${STATUS_FLOW[flowIdx+1]}')">${d.advanceTo} "${statusLabel(STATUS_FLOW[flowIdx+1])}"</button>` : ''}
         ${o.status!=='cancelled' && o.status!=='completed' ? `<button class="btn-danger-ghost" onclick="cancelOrderConfirm('${o.no}')">${d.cancelOrder}</button>` : ''}
+        <button class="btn-danger-ghost" onclick="deleteOrderConfirm('${o.no}')">${d.deleteOrder}</button>
       </div>
     </div>
 
@@ -1370,6 +1556,27 @@ function exportOrdersCsv(){
   URL.revokeObjectURL(url);
 }
 
+let deferredInstallPrompt = null;
+function isStandaloneApp(){
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+}
+window.addEventListener('beforeinstallprompt', (e)=>{
+  e.preventDefault(); deferredInstallPrompt = e;
+  if(route.name==='settings') renderApp();
+});
+window.addEventListener('appinstalled', ()=>{ deferredInstallPrompt = null; if(route.name==='settings') renderApp(); });
+async function installApp(){
+  if(!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  try{ await deferredInstallPrompt.userChoice; }catch(e){}
+  deferredInstallPrompt = null;
+  renderApp();
+}
+function renderInstallRow(d){
+  if(isStandaloneApp()) return `<div class="settings-row"><span class="badge instock">${d.installedBadge}</span></div>`;
+  if(deferredInstallPrompt) return `<div class="settings-row"><span class="cell-muted">${d.installHow.split('  ')[0]}</span><button class="btn btn-primary btn-sm" onclick="installApp()">${d.installBtn}</button></div>`;
+  return `<p class="install-hint">${d.installHow.split('  ').join('<br>')}</p>`;
+}
 function renderNotifRow(d){
   if(pushStatus==='unsupported') return `<div class="settings-row"><span class="cell-muted">${d.notifUnsupported}</span></div>`;
   if(pushStatus==='insecure') return `<div class="settings-row"><span class="cell-muted">${d.notifInsecure}</span></div>`;
@@ -1380,6 +1587,7 @@ function renderNotifRow(d){
 }
 function renderSettings(){
   const d = t();
+  const shopWa = getShopWhatsapp();
   const key = getAdminKey();
   const masked = key ? (key.slice(0,4) + '•'.repeat(Math.max(0,key.length-4))) : '';
   document.getElementById('content').innerHTML = `
@@ -1405,9 +1613,22 @@ function renderSettings(){
         <div class="settings-row"><span>${d.adminKeyChange}</span><button class="btn-danger-ghost" onclick="disconnectAdmin()">${d.adminKeyDisconnect}</button></div>
       </div>
       <div class="card settings-card">
+        <h4>${d.installTitle}</h4>
+        <p style="color:var(--ink-soft);font-size:.8rem;margin:0 0 12px;">${d.installDesc}</p>
+        ${renderInstallRow(d)}
+      </div>
+      <div class="card settings-card">
         <h4>${d.notifSettings}</h4>
         <p style="color:var(--ink-soft);font-size:.8rem;margin:0 0 12px;">${d.notifDesc}</p>
         ${renderNotifRow(d)}
+      </div>
+      <div class="card settings-card">
+        <h4>${d.shopWaSettings}</h4>
+        <p style="color:var(--ink-soft);font-size:.8rem;margin:0 0 12px;">${d.shopWaDesc}</p>
+        ${shopWa
+          ? `<div class="settings-row"><span class="cell-muted">${shopWa}</span><span class="badge instock">${d.shopWaConnected}</span></div>
+             <div class="settings-row"><span>${d.shopWaChange}</span><input id="shopWaInput" type="tel" value="${shopWa}" placeholder="${d.shopWaLabel}" style="max-width:220px;"><button class="btn btn-primary btn-sm" onclick="saveShopWhatsapp()">${d.shopWaSaveBtn}</button></div>`
+          : `<div class="settings-row" style="flex-wrap:wrap;gap:8px;"><input id="shopWaInput" type="tel" placeholder="${d.shopWaLabel}" style="flex:1;min-width:180px;"><button class="btn btn-primary btn-sm" onclick="saveShopWhatsapp()">${d.shopWaSaveBtn}</button></div>`}
       </div>
       <div class="card settings-card">
         <h4>${d.dangerZone}</h4>
