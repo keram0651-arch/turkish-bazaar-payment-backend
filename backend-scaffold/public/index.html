@@ -550,6 +550,8 @@ footer.site::before{content:'';position:absolute;top:0;left:0;right:0;height:3px
   transition:transform .35s cubic-bezier(.16,1,.3,1), box-shadow .35s, border-color .35s;position:relative;}
 .product-card:hover{transform:translateY(-4px);box-shadow:0 12px 26px -12px rgba(43,23,21,.22);border-color:var(--gold-light);}
 .product-card .placeholder-img{aspect-ratio:1/1;min-height:0;}
+.product-card.sold-out .placeholder-img{filter:grayscale(.55);opacity:.7;}
+.sold-out-ribbon{position:absolute;top:50%;left:0;right:0;transform:translateY(-120%);z-index:4;text-align:center;background:rgba(122,31,43,.92);color:#fff;font-weight:700;font-size:.82rem;padding:6px 8px;letter-spacing:.02em;pointer-events:none;}
 .pc-badge{position:absolute;top:7px;inset-inline-start:7px;z-index:2;font-size:.56rem;letter-spacing:.03em;
   text-transform:uppercase;padding:3px 8px;border-radius:10px;color:#fff;font-weight:500;}
 .pc-badge.bestseller{background:var(--gold);color:var(--ink);}
@@ -1529,6 +1531,7 @@ const PRODUCT_IMAGES = {
   teaFlavorPomegranate: "/images/teaFlavorPomegranate.jpg",
   teaFlavorRose: "/images/teaFlavorRose.jpg",
   teaFlavorBlackberry: "/images/teaFlavorBlackberry.jpg",
+  teaFlavorSultan: "/images/teaFlavorSultan.jpg",
   teaFlavorLemonGinger: "/images/teaFlavorLemonGinger.jpg",
   teaFlavorEucalyptus: "/images/teaFlavorEucalyptus.jpg",
 };
@@ -1911,6 +1914,7 @@ const GENERIC_PRODUCTS = {
     {en:'Pomegranate Tea',ar:'شاي الرمان',price:5,imgKey:'teaFlavorPomegranate',weightEn:'200g',weightAr:'200غ'},
     {en:'Rose Tea',ar:'شاي الورد',price:5,imgKey:'teaFlavorRose',weightEn:'200g',weightAr:'200غ'},
     {en:'Blackberry Tea',ar:'شاي التوت الأسود',price:5,imgKey:'teaFlavorBlackberry',weightEn:'200g',weightAr:'200غ'},
+    {en:'Sultan Tea',ar:'شاي السلطان',price:5,imgKey:'teaFlavorSultan',weightEn:'200g',weightAr:'200غ'},
     {en:'Lemon & Ginger Tea',ar:'شاي الليمون والزنجبيل',price:5,imgKey:'teaFlavorLemonGinger',weightEn:'200g',weightAr:'200غ'},
     {en:'Eucalyptus Tea',ar:'شاي النعناع والأوكالبتوس',price:5,imgKey:'teaFlavorEucalyptus',weightEn:'200g',weightAr:'200غ'},
   ],
@@ -2431,7 +2435,9 @@ function renderQuickViewModal(){
           </div>
         </div>
         <div class="qv-actions">
-          <button class="btn btn-primary" onclick="qvAddToCart()">${ICONS.bag}${d.addCart}</button>
+          ${isSoldOut(p.cat||catId)
+            ? `<button class="btn btn-primary" disabled style="opacity:.55;cursor:not-allowed;">${soldOutLabel()}</button>`
+            : `<button class="btn btn-primary" onclick="qvAddToCart()">${ICONS.bag}${d.addCart}</button>`}
           <button class="qv-wish-btn ${isWish?'active':''}" data-wish-key="${key}" onclick="qvToggleWish()">${ICONS.heart}</button>
         </div>
       </div>
@@ -3273,7 +3279,8 @@ function renderProductCard(catId, p, idx){
   const weightText = p.weightEn ? (lang==='ar'?p.weightAr:p.weightEn) : '—';
   const shortDesc = p.shortDescEn ? (lang==='ar'?p.shortDescAr:p.shortDescEn) : '';
   return `
-  <div class="product-card ornamented cat-${catId}">
+  <div class="product-card ornamented cat-${catId}${isSoldOut(catId)?' sold-out':''}">
+    ${isSoldOut(catId)?`<span class="sold-out-ribbon">${soldOutLabel()}</span>`:''}
     ${p.badge?`<span class="pc-badge ${p.badge}">${badgeLabel(p.badge)}</span>`:''}
     <button class="wish-btn ${isWish?'active':''}" data-wish-key="${key}" onclick="toggleWish('${catId}','${escapeAttr(p.en)}','${escapeAttr(p.ar)}',${p.price},'${wEn}','${wAr}')">${ICONS.heart}</button>
     <div class="pc-clickable" onclick="openQuickView('${catId}','${escapeAttr(p.en)}','${wEn}')">
@@ -3287,10 +3294,17 @@ function renderProductCard(catId, p, idx){
       ${shortDesc?`<div class="pc-shortdesc">${shortDesc}</div>`:''}
       <div class="pc-weight"><b>${d.weightLabel}:</b> ${weightText}</div>
       <div class="price">${isDiscountedCat(catId)?'':`<span class="pc-price-label">${d.priceLabel}:</span> `}${productPriceDisplay(catId, p.price, p.weightEn)}</div>
-      <button class="btn btn-primary" onclick="addSimpleToCart('${catId}','${escapeAttr(p.en)}','${escapeAttr(p.ar)}',${p.price},${p.imgKey?`'${p.imgKey}'`:'null'},'${wEn}','${wAr}')">${ICONS.bag}${d.addCart}</button>
+      ${isSoldOut(catId)
+        ? `<button class="btn btn-primary" disabled style="opacity:.55;cursor:not-allowed;">${soldOutLabel()}</button>`
+        : `<button class="btn btn-primary" onclick="addSimpleToCart('${catId}','${escapeAttr(p.en)}','${escapeAttr(p.ar)}',${p.price},${p.imgKey?`'${p.imgKey}'`:'null'},'${wEn}','${wAr}')">${ICONS.bag}${d.addCart}</button>`}
     </div>
   </div>`;
 }
+
+// Categories that are currently out of stock — shown with a notice, and can't be added to the cart.
+const SOLD_OUT_CATS = ['malban'];
+function isSoldOut(catId){ return SOLD_OUT_CATS.includes(catId); }
+function soldOutLabel(){ return lang==='ar' ? 'الكمية منتهية' : 'Out of stock'; }
 
 function escapeAttr(s){ return String(s).replace(/'/g,"\\'"); }
 
@@ -3613,6 +3627,7 @@ function addBaklavaToCart(id){
 }
 
 function addSimpleToCart(catId, en, ar, price, imgKey, weightEn, weightAr){
+  if(isSoldOut(catId)){ showToast(soldOutLabel()); return; }
   const key = catId+'-'+en+(weightEn?'-'+weightEn:'');
   const existing = cart.find(l=>l.key===key);
   if(existing){ existing.qty += 1; } else {
