@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Turkish Bazaar | القرية التركية</title>
-<link rel="icon" type="image/png" href="/images/LOGO_DATA_URI.png">
-<link rel="apple-touch-icon" href="/images/LOGO_DATA_URI.png">
+<link rel="icon" type="image/png" href="/images/_URI.png">
+<link rel="apple-touch-icon" href="/imageLOGO_DATAs/LOGO_DATA_URI.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Jost:wght@300;400;500;600&family=Amiri:wght@400;700&family=Cairo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -2223,7 +2223,7 @@ function renderSearchOverlay(){
           ${results.map(p=>`
             <div class="search-result-row" onclick="searchGoCategory('${p.cat}')">
               <div class="thumb">${placeholder(p.en,p.ar,'',p.imgKey)}</div>
-              <div class="meta"><h5>${lang==='ar'?p.ar:p.en}</h5><span>${discountedPriceMarkup(p.cat, p.price, 'sm row', p.weightEn)}</span></div>
+              <div class="meta"><h5>${lang==='ar'?p.ar:p.en}</h5><span>${discountedPriceMarkup(p.cat, p.price, 'sm row', p.weightEn, p)}</span></div>
             </div>`).join('')}
         </div>
         <div style="text-align:center;margin-top:20px;">
@@ -2424,7 +2424,7 @@ function renderQuickViewModal(){
         <span class="cat-tag">${cat?catName(cat):''}</span>
         <h3>${lang==='ar'?p.ar:p.en}</h3>
         <div class="qv-meta-row"><span class="lbl">${d.weightLabel}</span><span class="val">${p.weightEn?(lang==='ar'?p.weightAr:p.weightEn):'—'}</span></div>
-        <div class="qv-meta-row ${isDiscountedCat(p.cat)?'qv-disc':''}"><span class="lbl">${d.priceLabel}</span><span class="val price">${discountedPriceMarkup(p.cat, p.price, 'lg', p.weightEn)}</span></div>
+        <div class="qv-meta-row ${isDiscountedCat(p.cat)?'qv-disc':''}"><span class="lbl">${d.priceLabel}</span><span class="val price">${discountedPriceMarkup(p.cat, p.price, 'lg', p.weightEn, p)}</span></div>
         ${desc?`<p class="qv-desc">${desc}</p>`:''}
         <div class="qv-qty-row">
           <span class="lbl" style="font-size:.76rem;letter-spacing:.06em;text-transform:uppercase;">${d.quantityLabel}</span>
@@ -2449,7 +2449,7 @@ function renderQuickViewModal(){
             <div class="qv-related-item" onclick="openQuickView('${r.cat}','${escapeAttr(r.en)}','${r.weightEn?escapeAttr(r.weightEn):''}')">
               <div class="thumb">${placeholder(r.en,r.ar,'',r.imgKey)}</div>
               <div class="rp-name">${lang==='ar'?r.ar:r.en}</div>
-              <div class="rp-price">${discountedPriceMarkup(r.cat, r.price, 'sm', r.weightEn)}</div>
+              <div class="rp-price">${discountedPriceMarkup(r.cat, r.price, 'sm', r.weightEn, r)}</div>
             </div>`).join('')}
         </div>
       </div>` : ''}
@@ -2829,7 +2829,7 @@ function renderCheckoutModal(){
         `).join('')}
         <div class="co-divider"></div>
         <div class="co-line"><span>${d.subtotal}</span><b>${fmtPrice(cartSubtotal())}</b></div>
-        ${cartDiscount()>0 ? `<div class="co-line" style="color:var(--red);"><span>${lang==='ar'?`خصم ${discountLabelPct()} (بقلاوة وحلقوم)`:`Discount ${discountLabelPct()} (baklava & delight)`}</span><b>-${fmtPrice(cartDiscount())}</b></div>` : ''}
+        ${cartDiscount()>0 ? `<div class="co-line" style="color:var(--red);"><span>${lang==='ar'?`خصم ${discountLabelPct()}`:`Discount ${discountLabelPct()}`}</span><b>-${fmtPrice(cartDiscount())}</b></div>` : ''}
         <div class="co-line"><span>${d.delivery}</span><b>${deliveryPending()?(lang==='ar'?'حسب المنطقة':'Depends on area'):(cartDelivery()===0?(lang==='ar'?'مجاني':'Free'):fmtPrice(cartDelivery()))}</b></div>
         <div class="co-divider"></div>
         <div class="co-line" style="font-size:1rem;"><span>${d.total}</span><b style="color:var(--red);font-family:var(--serif);font-size:1.15rem;">${fmtPrice(cartTotal())}</b></div>
@@ -3015,7 +3015,7 @@ function renderCollectionCard(c){
         <button class="${w==='05'?'active':''}" onclick="setWeight('${c.id}','05')">${lang==='ar'?baklavaWeight05Ar(c):baklavaWeight05En(c)}</button>
       </div>
       <div class="price-row">
-        <span class="price">${discountedPriceMarkup('baklava', price, 'lg', w==='1'?'1 KG':baklavaWeight05En(c))}</span>
+        <span class="price">${discountedPriceMarkup('baklava', price, 'lg', w==='1'?'1 KG':baklavaWeight05En(c), c)}</span>
         <small>${w==='1'?d.weight1:(lang==='ar'?baklavaWeight05Ar(c):baklavaWeight05En(c))}</small>
       </div>
       <div class="qty-row">
@@ -3173,7 +3173,7 @@ function renderMiniCard(catId, p){
       <div class="delight-mini-thumb">${placeholder(p.en, p.ar, '', p.imgKey)}</div>
       <div class="delight-mini-name">${lang==='ar'?p.ar:p.en}</div>
       ${isDiscountedCat(catId)
-        ? `<div class="delight-mini-meta" style="margin-bottom:3px;">${weightText}</div><div class="delight-mini-price">${discountedPriceMarkup(catId, p.price, 'sm', p.weightEn)}</div>`
+        ? `<div class="delight-mini-meta" style="margin-bottom:3px;">${weightText}</div><div class="delight-mini-price">${discountedPriceMarkup(catId, p.price, 'sm', p.weightEn, p)}</div>`
         : `<div class="delight-mini-meta">${weightText?`${weightText} · `:''}<b>${fmtPrice(p.price)}</b></div>`}
     </div>
     <button class="delight-mini-add" onclick="addSimpleToCart('${catId}','${escapeAttr(p.en)}','${escapeAttr(p.ar)}',${p.price},${p.imgKey?`'${p.imgKey}'`:'null'},'${wEn}','${wAr}')" aria-label="${d.addCart}">${ICONS.plus}</button>
@@ -3293,7 +3293,7 @@ function renderProductCard(catId, p, idx){
       <h4 class="pc-clickable" onclick="openQuickView('${catId}','${escapeAttr(p.en)}','${wEn}')">${lang==='ar'?p.ar:p.en}</h4>
       ${shortDesc?`<div class="pc-shortdesc">${shortDesc}</div>`:''}
       <div class="pc-weight"><b>${d.weightLabel}:</b> ${weightText}</div>
-      <div class="price">${isDiscountedCat(catId)?'':`<span class="pc-price-label">${d.priceLabel}:</span> `}${productPriceDisplay(catId, p.price, p.weightEn)}</div>
+      <div class="price">${isDiscountedCat(catId)?'':`<span class="pc-price-label">${d.priceLabel}:</span> `}${productPriceDisplay(catId, p.price, p.weightEn, p)}</div>
       ${isSoldOut(catId)
         ? `<button class="btn btn-primary" disabled style="opacity:.55;cursor:not-allowed;">${soldOutLabel()}</button>`
         : `<button class="btn btn-primary" onclick="addSimpleToCart('${catId}','${escapeAttr(p.en)}','${escapeAttr(p.ar)}',${p.price},${p.imgKey?`'${p.imgKey}'`:'null'},'${wEn}','${wAr}')">${ICONS.bag}${d.addCart}</button>`}
@@ -3302,7 +3302,7 @@ function renderProductCard(catId, p, idx){
 }
 
 // Categories that are currently out of stock — shown with a notice, and can't be added to the cart.
-const SOLD_OUT_CATS = ['malban'];
+const SOLD_OUT_CATS = [];
 function isSoldOut(catId){ return SOLD_OUT_CATS.includes(catId); }
 function soldOutLabel(){ return lang==='ar' ? 'الكمية منتهية' : 'Out of stock'; }
 
@@ -3666,28 +3666,70 @@ function toggleWish(catId, en, ar, price, weightEn, weightAr){
   });
 }
 
-/* Promotional discount — applies only to cart lines whose category (l.cat)
-   is in DISCOUNT_CATEGORIES (baklava + Turkish delight/"راحة"), but is
-   shown and deducted as ONE line against the order's overall total (not
-   as a per-item price change). To turn it off, set SITE_DISCOUNT_PERCENT
-   to 0 — the discount row/banner simply won't render. To change which
-   categories qualify, edit DISCOUNT_CATEGORIES (category ids are defined
-   in CATEGORIES above — e.g. 'baklava', 'delight'). */
-const SITE_DISCOUNT_PERCENT = 20;
-const DISCOUNT_CATEGORIES = ['baklava','trays','delight'];
-// Half-kilo boxes (0.5 KG / 550g / 450g) get a smaller discount than the 1 KG ones.
-const HALF_KG_DISCOUNT_PERCENT = 10;
+/* Promotional discounts (tiered):
+   - Baklava / baklava trays / Turkish delight:
+       0.5 KG box ........ 10%
+       1 KG box .......... 15%
+       2 KG or more ...... 20%  (total kilos of baklava + delight in the cart,
+                                 or a single item that is already 2 KG+, e.g. trays)
+   - Coppers, vinegar, cotton candy (شعر البنات), pişmaniye (البشمانية),
+     paradise halva (حلاوة الجنة) ... 50%
+   - Everything else ...... 25%
+   Discounts are deducted as ONE line against the order total in the cart. */
+const SITE_DISCOUNT_PERCENT = 25;          // every other item
+const HALF_KG_DISCOUNT_PERCENT = 10;       // 0.5 KG baklava / delight
+const ONE_KG_DISCOUNT_PERCENT = 15;        // 1 KG baklava / delight
+const TWO_KG_DISCOUNT_PERCENT = 20;        // 2 KG+ baklava / delight
+const TWO_KG_THRESHOLD = 2;                // kilos needed for the 20% tier
+const HALF_PRICE_PERCENT = 50;             // coppers, vinegar, cotton candy, pişmaniye, paradise halva
+const SWEET_CATEGORIES = ['baklava','trays','delight'];
+const HALF_PRICE_CATEGORIES = ['vinegar','copper'];
+const HALF_PRICE_NAME_RE = /نحاس|شعر\s*البنات|بشماني|باشماني|حلاو[ةه]\s*الجن|copper|cotton\s*candy|pi[sş]maniye|paradise/i;
+// Half-kilo boxes (0.5 KG / 550g / 450g)
 function isHalfKgWeight(w){ return /^\s*(0\.5\s*(kg|كغم)|550\s*(g|غ)|450\s*(g|غ))\s*$/i.test(w||''); }
-function discountPctFor(catId, weight){
-  if(!(SITE_DISCOUNT_PERCENT>0) || !DISCOUNT_CATEGORIES.includes(catId)) return 0;
-  return isHalfKgWeight(weight) ? HALF_KG_DISCOUNT_PERCENT : SITE_DISCOUNT_PERCENT;
+// Weight of one box in "kilo units": half-kilo boxes = 0.5, 900g/1 KG boxes = 1, trays = their kilos.
+function unitKg(w){
+  if(isHalfKgWeight(w)) return 0.5;
+  const s = String(w||'');
+  let m = s.match(/([\d.]+)\s*(kg|كغم)/i);
+  let kg = m ? parseFloat(m[1]) : 0;
+  if(!m){ m = s.match(/([\d.]+)\s*(g|غ)/i); kg = m ? parseFloat(m[1])/1000 : 0; }
+  return (kg>=0.7 && kg<1) ? 1 : kg;
+}
+function isSweetCat(catId){ return SWEET_CATEGORIES.includes(catId); }
+function isHalfPriceItem(catId, item){
+  if(HALF_PRICE_CATEGORIES.includes(catId)) return true;
+  if(!item) return false;
+  return HALF_PRICE_NAME_RE.test((item.ar||item.nameAr||'')+' '+(item.en||item.nameEn||''));
+}
+// Discount % for ONE product on its own (used on product cards / quick view).
+function discountPctFor(catId, weight, item){
+  if(!(SITE_DISCOUNT_PERCENT>0)) return 0;
+  if(isHalfPriceItem(catId, item)) return HALF_PRICE_PERCENT;
+  if(isSweetCat(catId)){
+    const kg = unitKg(weight);
+    if(kg>=TWO_KG_THRESHOLD) return TWO_KG_DISCOUNT_PERCENT;
+    if(kg>=1) return ONE_KG_DISCOUNT_PERCENT;
+    return HALF_KG_DISCOUNT_PERCENT;
+  }
+  return SITE_DISCOUNT_PERCENT;
+}
+// Total kilos of baklava + delight in the cart (drives the 20% tier).
+function cartSweetKg(){
+  return cart.reduce((s,l)=> (isSweetCat(l.cat) && !isHalfPriceItem(l.cat,l)) ? s + unitKg(l.weight)*l.qty : s, 0);
+}
+// Discount % for a cart line (takes the 2 KG+ tier into account).
+function cartLinePct(l){
+  const p = discountPctFor(l.cat, l.weight, l);
+  if(isSweetCat(l.cat) && p<HALF_PRICE_PERCENT && cartSweetKg()>=TWO_KG_THRESHOLD) return Math.max(p, TWO_KG_DISCOUNT_PERCENT);
+  return p;
 }
 function discountLabelPct(){
-  const set = [...new Set(cart.map(l=>discountPctFor(l.cat, l.weight)).filter(x=>x>0))].sort((a,b)=>b-a);
+  const set = [...new Set(cart.map(cartLinePct).filter(x=>x>0))].sort((a,b)=>b-a);
   return set.length ? set.join('% / ')+'%' : SITE_DISCOUNT_PERCENT+'%';
 }
 function cartSubtotal(){ return cart.reduce((s,l)=>s+l.price*l.qty,0); }
-function cartDiscount(){ return cart.reduce((s,l)=>s+l.price*l.qty*(discountPctFor(l.cat,l.weight)/100),0); }
+function cartDiscount(){ return cart.reduce((s,l)=>s+l.price*l.qty*(cartLinePct(l)/100),0); }
 function cartSubtotalAfterDiscount(){ return cartSubtotal()-cartDiscount(); }
 // Delivery pricing: flat price per delivery area, chosen by the customer in
 // the checkout form (a dropdown with a radio circle + price next to each area).
@@ -3733,18 +3775,18 @@ function cartTotal(){ return cartSubtotalAfterDiscount()+cartDelivery(); }
 // accent color. Purely visual — addSimpleToCart still adds the item at its
 // full price; cartDiscount() above is what actually applies the 20% off at
 // the cart/checkout level (this just previews it on the card).
-function isDiscountedCat(catId){ return SITE_DISCOUNT_PERCENT>0 && DISCOUNT_CATEGORIES.includes(catId); }
+function isDiscountedCat(catId){ return SITE_DISCOUNT_PERCENT>0; }
 // One shared look for every discounted item: small white circle with the OLD
 // price (red, struck through) and the NEW, bigger price underneath it.
 // size: '' (card) | 'sm' (lists) | 'lg' (quick view); add ' row' to lay out side by side.
-function discountedPriceMarkup(catId, price, size, weight){
+function discountedPriceMarkup(catId, price, size, weight, item){
   if(!isDiscountedCat(catId)) return fmtPrice(price);
-  const discPrice = price * (1 - discountPctFor(catId, weight)/100);
+  const discPrice = price * (1 - discountPctFor(catId, weight, item)/100);
   return `<span class="dp ${size||''}"><i class="dp-old">${price.toFixed(2)}</i><b class="dp-new">${fmtPrice(discPrice)}</b></span>`;
 }
-function productPriceDisplay(catId, price, weight){
+function productPriceDisplay(catId, price, weight, item){
   if(isDiscountedCat(catId)){
-    return discountedPriceMarkup(catId, price, '', weight);
+    return discountedPriceMarkup(catId, price, '', weight, item);
   }
   return fmtPrice(price);
 }
@@ -3779,7 +3821,7 @@ function renderCartDrawer(){
     ${empty ? '' : `
     <div class="drawer-foot">
       <div class="tot-row"><span>${d.subtotal}</span><span>${fmtPrice(cartSubtotal())}</span></div>
-      ${cartDiscount()>0 ? `<div class="tot-row" style="color:var(--red);"><span>${lang==='ar'?`خصم ${discountLabelPct()} (بقلاوة وحلقوم)`:`Discount ${discountLabelPct()} (baklava & delight)`}</span><span>-${fmtPrice(cartDiscount())}</span></div>` : ''}
+      ${cartDiscount()>0 ? `<div class="tot-row" style="color:var(--red);"><span>${lang==='ar'?`خصم ${discountLabelPct()}`:`Discount ${discountLabelPct()}`}</span><span>-${fmtPrice(cartDiscount())}</span></div>` : ''}
       <div class="tot-row"><span>${d.delivery}</span><span>${deliveryPending()?(lang==='ar'?'حسب المنطقة':'Depends on area'):(cartDelivery()===0?(lang==='ar'?'مجاني':'Free'):fmtPrice(cartDelivery()))}</span></div>
       <div class="tot-row" style="font-size:.72rem;">${d.deliveryPricingNote}</div>
       <div class="tot-row grand"><span>${d.total}</span><b>${fmtPrice(cartTotal())}</b></div>
@@ -3973,8 +4015,8 @@ function pageContent(){
 function renderPromoBanner(){
   if(SITE_DISCOUNT_PERCENT<=0) return '';
   const msg = lang==='ar'
-    ? `🎉 خصم ${SITE_DISCOUNT_PERCENT}% على الكيلو و${HALF_KG_DISCOUNT_PERCENT}% على النصف كيلو من البقلاوة والراحة لفترة محدودة`
-    : `🎉 ${SITE_DISCOUNT_PERCENT}% off 1 KG & ${HALF_KG_DISCOUNT_PERCENT}% off 0.5 KG — Baklava & Turkish Delight, for a limited time`;
+    ? `🎉 بقلاوة وراحة: نص كيلو ${HALF_KG_DISCOUNT_PERCENT}% • كيلو ${ONE_KG_DISCOUNT_PERCENT}% • كيلوين فأكثر ${TWO_KG_DISCOUNT_PERCENT}% — النحاسيات والخل وشعر البنات والبشمانية وحلاوة الجنة ${HALF_PRICE_PERCENT}% — باقي الأصناف ${SITE_DISCOUNT_PERCENT}%`
+    : `🎉 Baklava & Delight: 0.5 KG ${HALF_KG_DISCOUNT_PERCENT}% • 1 KG ${ONE_KG_DISCOUNT_PERCENT}% • 2 KG+ ${TWO_KG_DISCOUNT_PERCENT}% — Coppers, Vinegar, Cotton Candy, Pişmaniye & Paradise Halva ${HALF_PRICE_PERCENT}% — Everything else ${SITE_DISCOUNT_PERCENT}%`;
   return `<div class="promo-banner" style="background:var(--red,#7a1f2b);color:#fff;text-align:center;padding:9px 12px;font-size:.82rem;font-weight:600;letter-spacing:.02em;">${msg}</div>`;
 }
 
