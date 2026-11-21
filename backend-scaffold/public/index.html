@@ -1512,6 +1512,7 @@ const PRODUCT_IMAGES = {
   coffeeTinMastic: "/images/coffeeTinMastic.jpg",
   coffeeTinCardamom: "/images/coffeeTinCardamom.jpg",
   coffeeTinHazelnut: "/images/coffeeTinHazelnut.jpg",
+  coffeeMehmetEfendi: "/images/coffeeMehmetEfendi.webp",
   baklavaAssorted: "/images/baklavaAssorted.jpg",
   baklavaSultan: "/images/baklavaSultan2.jpg",
   baklavaPalace: "/images/baklavaPalace.jpg",
@@ -1925,6 +1926,7 @@ const GENERIC_PRODUCTS = {
     {en:'Turkish Coffee with Mastic',ar:'قهوة تركية بالمستكة',price:9,imgKey:'coffeeTinMastic',weightEn:'200g',weightAr:'200غ',group:'tin'},
     {en:'Turkish Coffee with Cardamom',ar:'قهوة تركية بالهيل',price:9,imgKey:'coffeeTinCardamom',weightEn:'200g',weightAr:'200غ',group:'tin'},
     {en:'Turkish Coffee with Hazelnut',ar:'قهوة تركية بالبندق',price:9,imgKey:'coffeeTinHazelnut',weightEn:'200g',weightAr:'200غ',group:'tin'},
+    {en:'Mehmet Efendi Coffee',ar:'قهوة محمد افندي',price:15,imgKey:'coffeeMehmetEfendi',weightEn:'500g',weightAr:'500غ',group:'tin'},
   ],
   traditional:[
     {en:'Sugar-Coated Almond Dragée',ar:'دراجيه اللوز المسكر',price:6.5,imgKey:'dragee',weightEn:'250g',weightAr:'250غ'},
@@ -3043,11 +3045,11 @@ function renderCategoryPage(catId){
 }
 
 const BANNER_IMAGES = {
-  baklava:'baklavaBanner', delight:'delightLifestyle', chocolate:'chocDragee', tea:'teaCaykur', coffee:'coffeeOsso',
+  baklava:'baklavaBanner', delight:'delightLifestyle', chocolate:'chocDragee', tea:'teaCaykur', coffee:'coffeeMehmetEfendi',
 };
 
 const CATEGORY_THUMB_IMG = {
-  trays:'hawwashCover', baklava:'baklavaClean', delight:'delightBoxShowcase', malban:'malbanThumb', chocolate:'chocolateBoxShowcase', tea:'teaCaykur', flavoredtea:'teaFlavorPomegranate', coffee:'coffeeShowcase', traditional:'dragee', spices:'spiceBBQ', vinegar:'vinegarGrape', molasses:'molassesPomegranate1000',
+  trays:'hawwashCover', baklava:'baklavaClean', delight:'delightBoxShowcase', malban:'malbanThumb', chocolate:'chocolateBoxShowcase', tea:'teaCaykur', flavoredtea:'teaFlavorPomegranate', coffee:'coffeeMehmetEfendi', traditional:'dragee', spices:'spiceBBQ', vinegar:'vinegarGrape', molasses:'molassesPomegranate1000',
 };
 
 function compactCategoryHeader(cat){
@@ -3697,6 +3699,12 @@ function unitKg(w){
   return (kg>=0.7 && kg<1) ? 1 : kg;
 }
 function isSweetCat(catId){ return SWEET_CATEGORIES.includes(catId); }
+// Items that never get a discount (they are sold at their listed price)
+const NO_DISCOUNT_NAME_RE = /محمد\s*[اأإ]فندي|mehmet\s*efendi/i;
+function isNoDiscountItem(item){
+  if(!item) return false;
+  return NO_DISCOUNT_NAME_RE.test((item.ar||item.nameAr||'')+' '+(item.en||item.nameEn||''));
+}
 function isHalfPriceItem(catId, item){
   if(HALF_PRICE_CATEGORIES.includes(catId)) return true;
   if(!item) return false;
@@ -3705,6 +3713,7 @@ function isHalfPriceItem(catId, item){
 // Discount % for ONE product on its own (used on product cards / quick view).
 function discountPctFor(catId, weight, item){
   if(!(SITE_DISCOUNT_PERCENT>0)) return 0;
+  if(isNoDiscountItem(item)) return 0;
   if(isHalfPriceItem(catId, item)) return HALF_PRICE_PERCENT;
   if(isSweetCat(catId)){
     const kg = unitKg(weight);
@@ -3781,7 +3790,9 @@ function isDiscountedCat(catId){ return SITE_DISCOUNT_PERCENT>0; }
 // size: '' (card) | 'sm' (lists) | 'lg' (quick view); add ' row' to lay out side by side.
 function discountedPriceMarkup(catId, price, size, weight, item){
   if(!isDiscountedCat(catId)) return fmtPrice(price);
-  const discPrice = price * (1 - discountPctFor(catId, weight, item)/100);
+  const pct = discountPctFor(catId, weight, item);
+  if(!pct) return fmtPrice(price);
+  const discPrice = price * (1 - pct/100);
   return `<span class="dp ${size||''}"><i class="dp-old">${price.toFixed(2)}</i><b class="dp-new">${fmtPrice(discPrice)}</b></span>`;
 }
 function productPriceDisplay(catId, price, weight, item){
