@@ -1460,6 +1460,7 @@ const PRODUCT_IMAGES = {
   delightRoseBoxNew: "/images/delightRoseBoxNew.jpg",
   malbanBox: "/images/malbanBox.jpg",
   malbanThumb: "/images/malbanThumb.jpg",
+  malbanHalfKg: "/images/malbanHalfKg.webp",
   chocolateDrageeBox: "/images/chocolateDrageeBox.jpg",
   spiceBroastedSpicy: "/images/spiceBroastedSpicy.jpg",
   spiceBroastedSweet: "/images/spiceBroastedSweet.jpg",
@@ -1885,11 +1886,11 @@ function flattenDelightFeatured(){ return [...delightFeaturedOneKg(), ...delight
 const DELIGHT_ITEMS = [...flattenDelightFeatured(), ...DELIGHT_STANDALONE];
 
 const MALBAN_WEIGHTED = [
-  {id:'malban', en:'Malban',ar:'ملبن',p1:14,p05:7,imgKey:'malbanBox',badge:'new',
+  {id:'malban', en:'Malban',ar:'ملبن',p1:14,p05:7,imgKey:'malbanBox',imgKeyHalf:'malbanHalfKg',badge:'new',
    shortDescEn:'Sugar-free', shortDescAr:'خالي من السكر'},
 ];
 function malbanOneKg(){ return MALBAN_WEIGHTED.map(c=>({cat:'malban', en:c.en, ar:c.ar, price:c.p1, imgKey:c.imgKey, weightEn:T.en.weight1, weightAr:T.ar.weight1, badge:c.badge, shortDescEn:c.shortDescEn, shortDescAr:c.shortDescAr})); }
-function malbanHalfKg(){ return MALBAN_WEIGHTED.map(c=>({cat:'malban', en:c.en, ar:c.ar, price:c.p05, imgKey:c.imgKey, weightEn:T.en.weight05, weightAr:T.ar.weight05, badge:c.badge, shortDescEn:c.shortDescEn, shortDescAr:c.shortDescAr})); }
+function malbanHalfKg(){ return MALBAN_WEIGHTED.map(c=>({cat:'malban', en:c.en, ar:c.ar, price:c.p05, imgKey:c.imgKeyHalf||c.imgKey, weightEn:T.en.weight05, weightAr:T.ar.weight05, badge:c.badge, shortDescEn:c.shortDescEn, shortDescAr:c.shortDescAr})); }
 function flattenMalban(){ return [...malbanOneKg(), ...malbanHalfKg()]; }
 const MALBAN_ITEMS = flattenMalban();
 
